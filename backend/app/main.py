@@ -6,9 +6,12 @@ import os
 from dotenv import load_dotenv
 import json
 from pathlib import Path
+from datetime import datetime
 
 # 加载环境变量
-load_dotenv()
+from pathlib import Path
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
 
 app = FastAPI(
     title="星航预言家 API",
@@ -80,16 +83,26 @@ async def get_starship(archive_id: str):
     return starship
 
 @app.post("/calculate")
-async def calculate_destiny(request: CalculationRequest):
-    """计算三体星舟"""
-    # 这里将实现核心的占卜算法
-    # 暂时返回示例数据
-    return {
-        "birth_date": request.birth_date,
-        "question": request.question,
-        "message": "占卜算法待实现",
-        "aliyun_model": os.getenv("ALIYUN_BAILIAN_MODEL")
-    }
+async def calculate_oracle(request: CalculationRequest):
+    """计算神谕API端点（异步版本）"""
+    try:
+        # 直接导入算法模块
+        from .oracle_algorithm import calculate_oracle
+        
+        # 调用核心算法（异步）
+        result = await calculate_oracle(request.birth_date, request.question)
+        
+        return {
+            "success": True,
+            "data": result,
+            "message": "神谕计算成功",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"计算错误: {str(e)}")
 
 @app.get("/health")
 async def health_check():

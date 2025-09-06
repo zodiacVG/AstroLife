@@ -81,7 +81,64 @@ const CalculatePage: React.FC = () => {
       {result && (
         <div className="result-section">
           <h3>占卜结果</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
+          
+          {/* 三体共振显示 */}
+          <div className="starships-grid">
+            {/* 本命星舟 */}
+            {result.destiny_starship && (
+              <div className="starship-card destiny">
+                <h4>🚀 本命星舟</h4>
+                <div className="starship-info">
+                  <div className="starship-name">{result.destiny_starship.name_cn}</div>
+                  <div className="starship-id">ID: {result.destiny_starship.archive_id}</div>
+                  <div className="starship-description">{result.destiny_starship.mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.destiny || 0}</div>
+                </div>
+              </div>
+            )}
+
+            {/* 天时星舟 */}
+            {result.timely_starship && (
+              <div className="starship-card timely">
+                <h4>⏰ 天时星舟</h4>
+                <div className="starship-info">
+                  <div className="starship-name">{result.timely_starship.name_cn}</div>
+                  <div className="starship-id">ID: {result.timely_starship.archive_id}</div>
+                  <div className="starship-description">{result.timely_starship.mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.timely || 0}</div>
+                </div>
+              </div>
+            )}
+
+            {/* 问道星舟 */}
+            {result.question_starship && (
+              <div className="starship-card question">
+                <h4>❓ 问道星舟</h4>
+                <div className="starship-info">
+                  <div className="starship-name">{result.question_starship.name_cn}</div>
+                  <div className="starship-id">ID: {result.question_starship.archive_id}</div>
+                  <div className="starship-description">{result.question_starship.mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.question || 0}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 神谕解读 */}
+          {result.interpretation && result.interpretation !== '暂时无法为您提供神谕解读，请稍后再试。' && (
+            <div className="oracle-section">
+              <h4>✨ 神谕解读</h4>
+              <div className="oracle-text">
+                {result.interpretation}
+              </div>
+            </div>
+          )}
+
+          {result.interpretation === '暂时无法为您提供神谕解读，请稍后再试。' && (
+            <div className="oracle-waiting">
+              <p>⏳ 神谕解读生成中，请稍后刷新页面查看...</p>
+            </div>
+          )}
         </div>
       )}
     </div>
