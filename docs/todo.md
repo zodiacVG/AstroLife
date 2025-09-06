@@ -2,8 +2,7 @@
 
 ## 已完成 ✅
 - [x] 搜集数据库
-  - [x] 建立航天器基础数据库 (astro_facts_data.json)
-  - [x] 建立神谕象征数据库 (astro_oracle_data.json)  
+  - [x] 建立航天器基础数据库 (starships.json - 整合了astro_facts_data.json和astro_oracle_data.json)  
   - [x] 包含中英文名称和完整档案
 - [x] 设计产品文档
   - [x] 完成核心PRD文档 (PRD_Complete.md)
@@ -40,15 +39,24 @@
 - [x] 清理oracle数据冗余字段 (core_principle & journey_phase 合并到 symbolic_keywords)
 
 ## 系统架构
-- [x] 设计前后端分离架构
-- [x] 选择技术栈（前端React+后端FastAPI）
-- [x] 设计API接口规范
-- [x] 实现数据验证层
-- [x] 设置开发环境
 - [x] 创建monorepo统一架构
 - [x] 建立AI开发指导规则
 - [x] 创建共享类型定义
 - [x] 配置VS Code工作区
+- [x] 创建Zeabur部署文档
+
+## 数据结构 [已完成]
+- [x] 优化航天器事实数据格式
+- [x] 简化字段结构
+- [x] 统一状态值格式
+- [x] 修复JSON格式错误
+- [x] 更新数据结构文档
+
+## 文档更新 [已完成]
+- [x] 更新monorepo结构文档
+- [x] 创建Zeabur部署指南
+- [x] 更新数据结构文档
+- [x] 移除探索性描述
 
 ## 新增明确需求 ✅
 - [x] 取消向量匹配，改用LLM智能选择

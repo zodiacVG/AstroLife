@@ -1,34 +1,21 @@
-// 航天器数据类型定义 - 前后端共享
+// 航天器数据类型定义 - 前后端共享（灵活版本）
 
+// 基础航天器接口 - 只包含最核心字段
 export interface AstroSpacecraft {
   archive_id: string;
   name_ch: string;
   name_en: string;
-  launch_date: string; // YYYY-MM-DD
-  mission_type: string;
-  status: string;
-  description: string;
-  symbolic_keywords: string[];
-  extended_attributes: ExtendedAttributes;
+  launch_date: string;
+  [key: string]: any; // 允许任意额外字段
 }
 
+// 扩展属性接口 - 完全开放
 export interface ExtendedAttributes {
-  mission_duration_days?: number;
-  current_distance_km?: number;
-  signal_delay_seconds?: number;
-  power_status?: string;
-  data_transmission_rate?: string;
-  primary_objectives?: string[];
-  discoveries?: string[];
-  technical_specs?: TechnicalSpecs;
+  [key: string]: any;
 }
 
-export interface TechnicalSpecs {
-  mass_kg?: number;
-  power_watts?: number;
-  communication_frequency?: string;
-  instruments?: string[];
-}
+// 灵活的数据容器
+export type FlexibleData = Record<string, any>;
 
 // API响应类型
 export interface AstroResponse {
