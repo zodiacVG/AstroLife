@@ -1,0 +1,191 @@
+{
+    "oracle_data": [
+        {
+            "archive_id": "001",
+            "core_attributes": {
+                "oracle_text": "人类将首次挣脱地球引力的枷锁，将一颗金属月亮送入环绕地球的永恒舞蹈。这不是征服，而是谦卑的第一步，证明凡人之手也能触摸星辰。",
+                "mission_type": "先驱者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["勇气", "人类", "突破", "新视角", "先驱", "谦卑", "第一步"]
+            }
+        },
+        {
+            "archive_id": "002",
+            "core_attributes": {
+                "oracle_text": "第一位太空使者将造访夜之女神，带回她隐藏一面的秘密。人类将首次真正认识这位陪伴了千秋万代的银色伴侣，发现她原来伤痕累累，却依然美丽动人。",
+                "mission_type": "探索者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["探索", "揭示", "秘密", "发现", "美丽", "伤痕"]
+            }
+        },
+        {
+            "archive_id": "003",
+            "core_attributes": {
+                "oracle_text": "尽管来自虚空的第一个声音说着另一种语言，但第二个声音将迅速回应。一次飞跃，虽未及星辰，却已至其门槛，证明这条道路向所有敢于挑战者敞开。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["回应", "追赶", "希望", "基础", "证明", "挑战", "敞开"]
+            }
+        },
+        {
+            "archive_id": "004",
+            "core_attributes": {
+                "oracle_text": "月亮将转过它隐藏的面颊，不是给神明，而是给一台机器的凝视。所揭示的将是陌生而伤痕累累的景象，见证着一个暴力的过去，一张新的地图将被绘制。",
+                "mission_type": "守护者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["秘密", "揭示", "新知", "另一面", "观察", "暴力", "地图"]
+            }
+        },
+        {
+            "archive_id": "005",
+            "core_attributes": {
+                "oracle_text": "一位信使将远征红色星辰，寻找生命的迹象。它将传回一个寂静、布满陨坑的世界的低语，终结一个古老的梦想，却开启一场根植于尘埃与岩石的新探索。",
+                "mission_type": "探索者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["探索", "现实", "幻灭", "真相", "深空", "远征", "尘埃"]
+            }
+        },
+        {
+            "archive_id": "006",
+            "core_attributes": {
+                "oracle_text": "第一辆以太阳神之名命名的战车将永不飞翔。它将在雄心的祭坛上被烈火吞噬，而从其灰烬中，一条通往月球的更安全的道路将被铸就。",
+                "mission_type": "创造者",
+                "significance_type": "警示"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["牺牲", "教训", "风险", "安全", "悲剧", "灰烬", "铸就"]
+            }
+        },
+        {
+            "archive_id": "007",
+            "core_attributes": {
+                "oracle_text": "三人将远航月球，非为触摸，只为凝望。此行中，他们将首次发现自己的世界——一颗蓝色弹珠，升起于灰色地平线之上，并将此景与众人共享。",
+                "mission_type": "探索者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["远航", "视角", "顿悟", "地球", "家园", "蓝色弹珠", "共享"]
+            }
+        },
+        {
+            "archive_id": "008",
+            "core_attributes": {
+                "oracle_text": "一个向国家的承诺将被兑现。一只鹰将降落于无水之海，一人的一小步将成为全人类的巨大飞跃，在另一个世界的尘土上留下足迹。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["成就", "巅峰", "承诺", "实现", "人类", "巨大飞跃", "足迹"]
+            }
+        },
+        {
+            "archive_id": "009",
+            "core_attributes": {
+                "oracle_text": "第十三次旅程将受诅咒。一艘飞船将在深空中残破，其目标将被遗弃。但从灾难的边缘，将诞生一场新的胜利——非关登陆，而在乎归来，由地上凡人的智慧指引回家。",
+                "mission_type": "探索者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["危机", "智慧", "团队合作", "幸存", "回归", "灾难", "胜利"]
+            }
+        },
+        {
+            "archive_id": "010",
+            "core_attributes": {
+                "oracle_text": "一位恒心者将前往古老的湖床，它不只为寻找过去的幽魂，更为未来的回归埋下信物。它将钻探岩石，封存时间的胶囊，等待另一位使者将其带回故土。同时，它将释放一只机械蜻蜓，在异星的天空中实现第一次飞翔。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["远行", "孤独", "遗产", "探索", "永恒", "金唱片", "幽灵船"]
+            }
+        },
+        {
+            "archive_id": "011",
+            "core_attributes": {
+                "oracle_text": "一只眼睛将被置于凡尘之上，不受凡间空气的扭曲。它将回望时间的开端，见证星辰的诞生与死亡，并向世人展示宇宙的壮丽与深邃，其图像将成为新时代的圣像。",
+                "mission_type": "守护者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["洞察", "真相", "清晰", "修正", "奇观", "圣像", "壮丽"]
+            }
+        },
+        {
+            "archive_id": "012",
+            "core_attributes": {
+                "oracle_text": "一只金色的眼睛将在寒冷与黑暗中展开，其目光将穿透尘埃与时间的迷雾，回溯至宇宙的黎明。它将寻找第一缕光，探寻生命摇篮的化学印记，揭示我们从何而来。",
+                "mission_type": "守护者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["起源", "回溯", "揭示", "深度", "灵敏", "化学印记", "生命摇篮"]
+            }
+        },
+        {
+            "archive_id": "013",
+            "core_attributes": {
+                "oracle_text": "在天空之上，一个由多国之手建造的居所将永不熄灯。它将成为人类离开摇篮的第一步，一个漂浮的港湾，人们在此学习在星辰间生活，为更遥远的航行做准备。它既是合作的象征，也是脆弱的奇迹。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["合作", "家园", "建设", "日常", "忍耐", "漂浮港湾", "脆弱奇迹"]
+            }
+        },
+        {
+            "archive_id": "014",
+            "core_attributes": {
+                "oracle_text": "东方巨龙将在天庭建造自己的宫殿。它将独立于旧有的联盟，开辟一条新的轨道之路，成为后起者的灯塔，证明通往星辰的道路不止一条。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["独立", "自主", "建设", "后来居上", "雄心", "东方巨龙", "灯塔"]
+            }
+        },
+        {
+            "archive_id": "015",
+            "core_attributes": {
+                "oracle_text": "一位恒心者将前往古老的湖床，它不只为寻找过去的幽魂，更为未来的回归埋下信物。它将钻探岩石，封存时间的胶囊，等待另一位使者将其带回故土。同时，它将释放一只机械蜻蜓，在异星的天空中实现第一次飞翔。",
+                "mission_type": "创造者",
+                "significance_type": "英雄"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["毅力", "工作", "搜寻", "证据", "奠基", "时间胶囊", "机械蜻蜓"]
+            }
+        },
+        {
+            "archive_id": "016",
+            "core_attributes": {
+                "oracle_text": "当凡人将飞翔变得习以为常，骄傲将使其忽视冰冷的警告。一架承载着教师与梦想的飞船将在众目睽睽之下化为火焰与浓烟，向天空和大地宣告，通往星辰的道路永远伴随着风险。",
+                "mission_type": "创造者",
+                "significance_type": "警示"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["悲剧", "傲慢", "风险", "公开", "教训", "火焰", "浓烟"]
+            }
+        },
+        {
+            "archive_id": "017",
+            "core_attributes": {
+                "oracle_text": "一艘功勋卓著的飞船将在返航途中陨落。其致命伤痕在旅程之初便已刻下，一块微不足道的碎片将成为毁灭的种子。这警示后人，最微小的疏忽也可能导致最宏伟的建筑轰然倒塌。",
+                "mission_type": "创造者",
+                "significance_type": "警示"
+            },
+            "extended_attributes": {
+                "symbolic_keywords": ["疏忽", "细节", "致命伤", "盲点", "组织文化", "碎片", "毁灭"]
+            }
+        }
+    ]
+}
