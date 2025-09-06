@@ -360,15 +360,15 @@
 
 ### 错误码表
 
-| 错误码 | 描述 | HTTP状态 |
-|--------|------|----------|
-| `INVALID_DATE_FORMAT` | 日期格式错误 | 400 |
-| `INVALID_ARCHIVE_ID` | 无效的星舟档案ID | 400 |
-| `MISSING_REQUIRED_FIELD` | 缺少必填字段 | 400 |
-| `STARSHIP_NOT_FOUND` | 星舟不存在 | 404 |
-| `ORACLE_GENERATION_FAILED` | 神谕生成失败 | 500 |
-| `LLM_SERVICE_ERROR` | LLM服务错误 | 503 |
-| `RATE_LIMIT_EXCEEDED` | 请求频率超限 | 429 |
+| 错误码                     | 描述             | HTTP状态 |
+| -------------------------- | ---------------- | -------- |
+| `INVALID_DATE_FORMAT`      | 日期格式错误     | 400      |
+| `INVALID_ARCHIVE_ID`       | 无效的星舟档案ID | 400      |
+| `MISSING_REQUIRED_FIELD`   | 缺少必填字段     | 400      |
+| `STARSHIP_NOT_FOUND`       | 星舟不存在       | 404      |
+| `ORACLE_GENERATION_FAILED` | 神谕生成失败     | 500      |
+| `LLM_SERVICE_ERROR`        | LLM服务错误      | 503      |
+| `RATE_LIMIT_EXCEEDED`      | 请求频率超限     | 429      |
 
 ## 速率限制
 
