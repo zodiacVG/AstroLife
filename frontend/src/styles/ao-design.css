@@ -3,8 +3,7 @@
 /* Mainland mirrors */
 @import url('https://fonts.font.im/css2?family=VT323&display=swap');
 @import url('https://fonts.font.im/css2?family=Noto+Sans+SC:wght@400;500&display=swap');
-/* 文泉驿正黑字体 */
-@import url('https://fontsapi.zeoseven.com/373/main/result.css');
+
 
 :root {
   --ao-color-bg:#0A0A0A; --ao-color-system:#33FF33; --ao-color-oracle:#FFB000;
@@ -111,4 +110,4 @@ a.ao-button:hover, .ao-button:hover { text-decoration: none; }
 .ao-chip.ok { color: var(--ao-color-success); }
 .ao-chip.err { color: var(--ao-color-danger); }
 .ao-chip.warn { color: var(--ao-color-warning); }
-.ao-console-bar { display:flex; flex-wrap:wrap; gap: 8px 12px; margin-top: 8px; font-size: 16px; }
+.ao-console-bar { display:flex; flex-wrap:wrap; gap: 8px 12px; margin-top: 8px; font-size: 16px; font-family: var(--ao-font-cjk); }
