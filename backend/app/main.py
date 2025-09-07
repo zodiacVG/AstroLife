@@ -274,7 +274,7 @@ async def divine_inquiry(payload: DivineInquiryRequest):
 
 
 @app.get("/api/v1/oracle/stream")
-async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str):
+async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str = ""):
     """使用前端已计算出的三艘飞船与问题，流式生成最终解读（SSE）。"""
     try:
         from .oracle_algorithm import load_starships_data
@@ -326,10 +326,10 @@ async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, ques
             "X-Accel-Buffering": "no",
         })
     except Exception as e:
-        def _err():
+        def _err(error_obj):
             import json as _json
-            yield f"event: error\ndata: {_json.dumps({'message': f'STREAM_ERROR: {e}'}, ensure_ascii=False)}\n\n"
-        return StreamingResponse(_err(), media_type="text/event-stream; charset=utf-8", headers={
+            yield f"event: error\ndata: {_json.dumps({'message': f'STREAM_ERROR: {error_obj}'}, ensure_ascii=False)}\n\n"
+        return StreamingResponse(_err(e), media_type="text/event-stream; charset=utf-8", headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",

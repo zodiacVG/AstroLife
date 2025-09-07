@@ -19,6 +19,8 @@ const CalculatePage: React.FC = () => {
   const [inquiryData, setInquiryData] = useState<any>(null)
   const [interpretation, setInterpretation] = useState<string | null>(null)
   const [finalTried, setFinalTried] = useState(false)
+  const [debugLogs, setDebugLogs] = useState<string[]>([])
+  const [commandHistory, setCommandHistory] = useState<string[]>([])
   const STORAGE_KEY = 'calcState-v1'
   const DEVICE_KEY = 'deviceId-v1'
 
@@ -71,12 +73,16 @@ const CalculatePage: React.FC = () => {
   }, [birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
   
   const canShowFinal = useMemo(() => {
-    // 要求：三舟成功 且 三个ID与问题都就绪 才展示最终解读（避免SSE缺参导致连接失败）
+    // 要求：三舟成功 且 三个ID都就绪 才展示最终解读（避免SSE缺参导致连接失败）
     const oId = originData?.starship?.archive_id
     const cId = celestialData?.starship?.archive_id
     const iId = inquiryData?.starship?.archive_id
     const hasIds = !!oId && !!cId && !!iId
-    return !!question && hasIds && originStatus === 'success' && celestialStatus === 'success' && inquiryStatus === 'success'
+    
+    // 如果没有问题，则不需要检查 inquiryStatus
+    const inquiryOk = !question || inquiryStatus === 'success'
+    
+    return hasIds && originStatus === 'success' && celestialStatus === 'success' && inquiryOk
   }, [originStatus, celestialStatus, inquiryStatus, question, originData, celestialData, inquiryData])
 
   // 调试：任何状态变化时打印关键信息
@@ -86,6 +92,15 @@ const CalculatePage: React.FC = () => {
     console.log('celestialStatus:', celestialStatus)
     console.log('inquiryStatus:', inquiryStatus)
     console.log('canShowFinal:', canShowFinal)
+    
+    // Update debug logs
+    setDebugLogs(prev => [
+      ...prev.slice(-9), // Keep only the last 9 logs
+      `originStatus: ${originStatus}`,
+      `celestialStatus: ${celestialStatus}`,
+      `inquiryStatus: ${inquiryStatus}`,
+      `canShowFinal: ${canShowFinal}`
+    ])
     if (
       originStatus === 'success' &&
       celestialStatus === 'success' &&
@@ -119,6 +134,11 @@ const CalculatePage: React.FC = () => {
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Add to command history
+    const command = `DIVINATION EXECUTED - BIRTH_DATE: ${birthDate}${question ? `, QUERY: ${question}` : ''}`
+    setCommandHistory(prev => [...prev.slice(-4), command])
+  
     if (!birthDate) {
       alert('请输入出生日期')
       return
@@ -203,7 +223,7 @@ const CalculatePage: React.FC = () => {
       console.groupEnd()
 
       // 三舟阶段完成后：若三者均成功，则挂载流式 Oracle（SSE）
-      const readyForComplete = (okOrigin && okCelestial && !!question && okInquiry)
+      const readyForComplete = (okOrigin && okCelestial && (question ? okInquiry : true))
       if (readyForComplete) {
         console.log('[Divine] readyForComplete=true, will mount OracleStream')
         setInterpretation(null)
@@ -224,11 +244,11 @@ const CalculatePage: React.FC = () => {
     <div className="ao-container ao-screen">
       <h2 className="ao-screen__title">Divination Console</h2>
       <div className="ao-module">
-        <div className="ao-header--inverted">INPUT</div>
-        <div className="ao-console-line">Awaiting command <span className="ao-cursor"></span></div>
+        <div className="ao-header--inverted">[SYSTEM] INPUT_TERMINAL</div>
+        <div className="ao-console-line">/&gt;_ Awaiting command input... <span className="ao-cursor"></span></div>
         <form onSubmit={handleCalculate} className="ao-form" aria-label="占卜输入">
           <div className="ao-field">
-          <label htmlFor="birthDate" className="ao-header--standard">出生日期 Birth Date *</label>
+          <label htmlFor="birthDate" className="ao-header--standard">[PARAM] BIRTH_DATE / REQUIRED</label>
             <div className="ao-console-field">
               <input
                 className="ao-input"
@@ -243,14 +263,14 @@ const CalculatePage: React.FC = () => {
           </div>
 
           <div className="ao-field">
-          <label htmlFor="question" className="ao-header--standard">问题 Question（可选 Optional）</label>
+          <label htmlFor="question" className="ao-header--standard">[PARAM] QUERY / OPTIONAL</label>
             <div className="ao-console-field">
               <textarea
                 className="ao-textarea"
                 id="question"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="输入你想询问的问题，获得神谕指引..."
+                placeholder="Enter query for oracle analysis..."
                 rows={2}
               />
               <span className="ao-cursor"></span>
@@ -262,62 +282,90 @@ const CalculatePage: React.FC = () => {
             disabled={isCalculating}
             className="ao-button"
           >
-            {isCalculating ? '计算中...' : '开始占卜'}
+            {isCalculating ? '[PROCESSING]...' : '[EXECUTE] DIVINATION'}
           </button>
         </form>
       </div>
 
+      <div className="ao-module">
+        <div className="ao-header--inverted">[SYSTEM] DEVICE_ID / TERMINAL</div>
+        <div className="ao-console-line">[ID] {getDeviceId()}</div>
+      </div>
+
+      <div className="ao-module">
+        <div className="ao-header--inverted">[SYSTEM] STATUS / MONITOR</div>
+        <div className="ao-console-line">[STATUS] SYSTEM_READY</div>
+      </div>
+
+      <div className="ao-module">
+        <div className="ao-header--inverted">[SYSTEM] DEBUG_LOG / VERBOSE</div>
+        {debugLogs.map((log, index) => (
+          <div key={index} className="ao-console-line">
+            [LOG] {log}
+          </div>
+        ))}
+      </div>
+
+      <div className="ao-module">
+        <div className="ao-header--inverted">[SYSTEM] COMMAND_HISTORY / BUFFER</div>
+        {commandHistory.map((cmd, index) => (
+          <div key={index} className="ao-console-line">
+            [CMD] {cmd}
+          </div>
+        ))}
+      </div>
+
       {(originStatus !== 'idle' || celestialStatus !== 'idle' || inquiryStatus !== 'idle') && (
         <div className="ao-module" role="region" aria-label="占卜结果">
-          <div className="ao-header--inverted">RESULT</div>
+          <div className="ao-header--inverted">[SYSTEM] OUTPUT_TERMINAL</div>
           
           {/* 三体共振显示 */}
           <div className="ao-grid ao-grid--starships">
             {/* 本命星舟 */}
-            {originStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">🚀 本命星舟</h4><div className="ao-console-line">计算中 <span className="ao-cursor"></span></div></div>)}
-            {originStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">🚀 本命星舟</h4><div><span className="ao-chip err">ERR</span> 计算失败</div></div>)}
+            {originStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
+            {originStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED</div></div>)}
             {originStatus === 'success' && originData?.starship && (
               <div className="ao-card ao-card--starship is-success">
-                <h4>🚀 本命星舟</h4>
+                <h4>[ORIGIN] STARSHIP_01</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{originData.starship.name_cn}</div>
-                  <div className="starship-id">ID: {originData.starship.archive_id}</div>
-                  <div className="starship-description">{originData.starship.oracle_text}</div>
-                  <div className="match-score">匹配得分: {originData.match_score ?? 0}</div>
+                  <div className="starship-name">[NAME] {originData.starship.name_cn}</div>
+                  <div className="starship-id">[ID] {originData.starship.archive_id}</div>
+                  <div className="starship-description">[DATA] {originData.starship.oracle_text}</div>
+                  <div className="match-score">[MATCH_SCORE] {originData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${originData.starship.archive_id}`}>查看详情</Link>
+                <Link className="ao-button" to={`/starships/${originData.starship.archive_id}`}>[VIEW] DETAILS</Link>
               </div>
             )}
 
             {/* 天时星舟 */}
-            {celestialStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">⏰ 天时星舟</h4><div className="ao-console-line">计算中 <span className="ao-cursor"></span></div></div>)}
-            {celestialStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">⏰ 天时星舟</h4><div><span className="ao-chip err">ERR</span> 计算失败</div></div>)}
+            {celestialStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[CELESTIAL] STARSHIP_02</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
+            {celestialStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[CELESTIAL] STARSHIP_02</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED</div></div>)}
             {celestialStatus === 'success' && celestialData?.starship && (
               <div className="ao-card ao-card--starship is-success">
-                <h4>⏰ 天时星舟</h4>
+                <h4>[CELESTIAL] STARSHIP_02</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{celestialData.starship.name_cn}</div>
-                  <div className="starship-id">ID: {celestialData.starship.archive_id}</div>
-                  <div className="starship-description">{celestialData.starship.oracle_text}</div>
-                  <div className="match-score">匹配得分: {celestialData.match_score ?? 0}</div>
+                  <div className="starship-name">[NAME] {celestialData.starship.name_cn}</div>
+                  <div className="starship-id">[ID] {celestialData.starship.archive_id}</div>
+                  <div className="starship-description">[DATA] {celestialData.starship.oracle_text}</div>
+                  <div className="match-score">[MATCH_SCORE] {celestialData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${celestialData.starship.archive_id}`}>查看详情</Link>
+                <Link className="ao-button" to={`/starships/${celestialData.starship.archive_id}`}>[VIEW] DETAILS</Link>
               </div>
             )}
 
             {/* 问道星舟 */}
-            {inquiryStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">❓ 问道星舟</h4><div className="ao-console-line">计算中 <span className="ao-cursor"></span></div></div>)}
-            {inquiryStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">❓ 问道星舟</h4><div><span className="ao-chip err">ERR</span> 计算失败（LLM不可用或超时）</div></div>)}
+            {inquiryStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[INQUIRY] STARSHIP_03</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
+            {inquiryStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[INQUIRY] STARSHIP_03</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED / LLM_TIMEOUT</div></div>)}
             {inquiryStatus === 'success' && inquiryData?.starship && (
               <div className="ao-card ao-card--starship is-success">
-                <h4>❓ 问道星舟</h4>
+                <h4>[INQUIRY] STARSHIP_03</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{inquiryData.starship.name_cn}</div>
-                  <div className="starship-id">ID: {inquiryData.starship.archive_id}</div>
-                  <div className="starship-description">{inquiryData.starship.oracle_text}</div>
-                  <div className="match-score">匹配得分: {inquiryData.match_score ?? 0}</div>
+                  <div className="starship-name">[NAME] {inquiryData.starship.name_cn}</div>
+                  <div className="starship-id">[ID] {inquiryData.starship.archive_id}</div>
+                  <div className="starship-description">[DATA] {inquiryData.starship.oracle_text}</div>
+                  <div className="match-score">[MATCH_SCORE] {inquiryData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${inquiryData.starship.archive_id}`}>查看详情</Link>
+                <Link className="ao-button" to={`/starships/${inquiryData.starship.archive_id}`}>[VIEW] DETAILS</Link>
               </div>
             )}
           </div>
@@ -325,9 +373,9 @@ const CalculatePage: React.FC = () => {
           {/* 神谕解读（流式，直接调用 oracle/stream，传入三艘飞船ID与问题） */}
           {canShowFinal && (
             <div className="ao-module" data-tone="oracle">
-              <div className="ao-header--inverted">Oracle Counsel / 神谕解读</div>
+              <div className="ao-header--inverted">[SYSTEM] ORACLE_OUTPUT / STREAMING</div>
               <OracleStream
-                key={`${originData?.starship?.archive_id || 'o'}-${celestialData?.starship?.archive_id || 'c'}-${inquiryData?.starship?.archive_id || 'i'}-${question || 'q'}`}
+                key={`${originData?.starship?.archive_id}-${celestialData?.starship?.archive_id}-${inquiryData?.starship?.archive_id}-${question || ''}`}
                 url="/api/v1/oracle/stream"
                 params={{
                   origin_id: originData?.starship?.archive_id,

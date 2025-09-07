@@ -3,13 +3,14 @@
 /* Mainland mirrors */
 @import url('https://fonts.font.im/css2?family=VT323&display=swap');
 @import url('https://fonts.font.im/css2?family=Noto+Sans+SC:wght@400;500&display=swap');
-@font-face { font-family: 'Zpix'; src: url('https://unpkg.com/zpix-pixel-font@latest/dist/zpix.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/zpix-pixel-font/dist/zpix.woff2') format('woff2'); font-display: swap; }
+/* 文泉驿正黑字体 */
+@import url('https://fontsapi.zeoseven.com/373/main/result.css');
 
 :root {
   --ao-color-bg:#0A0A0A; --ao-color-system:#33FF33; --ao-color-oracle:#FFB000;
   --ao-border-system:rgba(51,255,51,.3); --ao-border-oracle:rgba(255,176,0,.4);
   --ao-color-muted:#A9B39F; --ao-color-danger:#FF4D4F; --ao-color-warning:#FFC53D; --ao-color-success:#52C41A;
-  --ao-font-terminal:'VT323', monospace; --ao-font-cjk:'Zpix','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui; --ao-lh-normal:1.5; --ao-ls-wide:2px;
+  --ao-font-terminal:'VT323', monospace; --ao-font-cjk:'WenQuanYi Zen Hei','Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui; --ao-lh-normal:1.5; --ao-ls-wide:2px;
   --ao-space-2:8px; --ao-space-3:12px; --ao-space-4:16px; --ao-space-5:20px; --ao-space-6:24px; --ao-space-8:40px;
   --ao-glow-system:0 0 5px rgba(51,255,51,.30); --ao-glow-oracle:0 0 5px rgba(255,176,0,.50);
 }
@@ -110,4 +111,4 @@ a.ao-button:hover, .ao-button:hover { text-decoration: none; }
 .ao-chip.ok { color: var(--ao-color-success); }
 .ao-chip.err { color: var(--ao-color-danger); }
 .ao-chip.warn { color: var(--ao-color-warning); }
-.ao-console-bar { display:flex; flex-wrap:wrap; gap: 8px 12px; margin-top: 8px; }
+.ao-console-bar { display:flex; flex-wrap:wrap; gap: 8px 12px; margin-top: 8px; font-size: 16px; }

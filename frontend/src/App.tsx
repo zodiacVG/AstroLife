@@ -17,11 +17,9 @@ function App() {
         <header className="App-header">
           <div className="ao-container ao-screen">
             <h1 className="ao-screen__title">Astro Oracle</h1>
-            <div className="ao-console-bar">
-              <span className="ao-chip">SYS</span>
-              <span>v1.1</span>
-            </div>
-            <div className="ao-console-line">Follow Zodiac on Xiaohongshu → <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">Unlock unlimited</a> <span className="ao-cursor"></span></div>
+            <div className="ao-console-bar"> 寻星问道</div>
+            <div className="ao-console-bar">Inspired by Quadrature (Juliane Götz & Sebastian Neitsch)’s work <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024).</div>
+            <div className="ao-console-line">关注作者，无限次使用寻星问道 Follow Zodiac on Xiaohongshu → <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">关注 Unlock unlimited</a> <span className="ao-cursor"></span></div>
           </div>
         </header>
 

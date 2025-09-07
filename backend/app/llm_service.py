@@ -199,12 +199,15 @@ class LLMService:
         
         starships_text = "\n".join(starships_info) if starships_info else "暂无航天器匹配"
         
+        # 处理空question的情况
+        question_display = question if question else "请根据三艘飞船的神谕，为我提供关于命运和时运的综合解读"
+        
         return f"""你是一个星航预言家，需要整合三艘宇宙飞船的神谕来回答用户的问题。
 
 三艘飞船的神谕：
 {starships_text}
 
-用户问题：{question}
+用户问题：{question_display}
 
 请生成一个综合性的神谕解读，结合三艘飞船的启示，用诗意而智慧的语言回答用户的问题。
 解读应该包含：
