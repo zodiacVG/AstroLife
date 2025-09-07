@@ -71,12 +71,51 @@ const CalculatePage: React.FC = () => {
   }, [birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
   
   const canShowFinal = useMemo(() => {
-    // 只有所有参与的步骤都成功时，才允许展示最终解读
-    if (question) {
-      return originStatus === 'success' && celestialStatus === 'success' && inquiryStatus === 'success'
+    // 要求：三舟成功 且 三个ID与问题都就绪 才展示最终解读（避免SSE缺参导致连接失败）
+    const oId = originData?.starship?.archive_id
+    const cId = celestialData?.starship?.archive_id
+    const iId = inquiryData?.starship?.archive_id
+    const hasIds = !!oId && !!cId && !!iId
+    return !!question && hasIds && originStatus === 'success' && celestialStatus === 'success' && inquiryStatus === 'success'
+  }, [originStatus, celestialStatus, inquiryStatus, question, originData, celestialData, inquiryData])
+
+  // 调试：任何状态变化时打印关键信息
+  useEffect(() => {
+    console.group('[Divine] step statuses')
+    console.log('originStatus:', originStatus)
+    console.log('celestialStatus:', celestialStatus)
+    console.log('inquiryStatus:', inquiryStatus)
+    console.log('canShowFinal:', canShowFinal)
+    if (
+      originStatus === 'success' &&
+      celestialStatus === 'success' &&
+      inquiryStatus === 'success' &&
+      !canShowFinal
+    ) {
+      console.warn('[Divine] 三个步骤成功但最终不可展示，可能因ID未就绪:', {
+        o: originData?.starship?.archive_id,
+        c: celestialData?.starship?.archive_id,
+        i: inquiryData?.starship?.archive_id,
+        q: !!question,
+      })
     }
-    return originStatus === 'success' && celestialStatus === 'success'
-  }, [originStatus, celestialStatus, inquiryStatus, question])
+    console.groupEnd()
+  }, [originStatus, celestialStatus, inquiryStatus, canShowFinal, originData, celestialData, inquiryData, question])
+
+  // 调试：当满足渲染最终解读的条件时，打印三艘飞船ID和问题
+  useEffect(() => {
+    if (canShowFinal) {
+      const originId = originData?.starship?.archive_id
+      const celestialId = celestialData?.starship?.archive_id
+      const inquiryId = inquiryData?.starship?.archive_id
+      console.group('[Divine] canShowFinal=true → stream params')
+      console.log('origin_id:', originId)
+      console.log('celestial_id:', celestialId)
+      console.log('inquiry_id:', inquiryId)
+      console.log('question:', question)
+      console.groupEnd()
+    }
+  }, [canShowFinal, originData, celestialData, inquiryData, question])
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -157,21 +196,22 @@ const CalculatePage: React.FC = () => {
 
       await Promise.allSettled(tasks)
 
-      console.group('Divine steps result')
-      console.log('origin:', originStatus, originData)
-      console.log('celestial:', celestialStatus, celestialData)
-      console.log('inquiry:', inquiryStatus, inquiryData)
+      console.group('[Divine] steps completed')
+      console.log('origin ok/data:', okOrigin, originData)
+      console.log('celestial ok/data:', okCelestial, celestialData)
+      console.log('inquiry ok/data:', okInquiry, inquiryData)
       console.groupEnd()
 
-      // 所有阶段完成后：
-      // - 若填写了问题：本命/天时/问道全部成功才触发最终解读
-      // - 若未填写问题：仅需本命/天时成功
-      const readyForComplete = question ? (okOrigin && okCelestial && okInquiry) : (okOrigin && okCelestial)
+      // 三舟阶段完成后：若三者均成功，则挂载流式 Oracle（SSE）
+      const readyForComplete = (okOrigin && okCelestial && !!question && okInquiry)
       if (readyForComplete) {
-        // 真流式：由 OracleStream 渲染；先清空（避免重播）
+        console.log('[Divine] readyForComplete=true, will mount OracleStream')
         setInterpretation(null)
+        setFinalTried(true)
+      } else {
+        console.log('[Divine] readyForComplete=false', { okOrigin, okCelestial, okInquiry, question })
+        setFinalTried(false)
       }
-      setFinalTried(true)
     } catch (error) {
       console.error('Error:', error)
       alert('占卜计算失败，请稍后重试')
@@ -282,16 +322,21 @@ const CalculatePage: React.FC = () => {
             )}
           </div>
 
-          {/* 神谕解读 */}
+          {/* 神谕解读（流式，直接调用 oracle/stream，传入三艘飞船ID与问题） */}
           {canShowFinal && (
             <div className="ao-module" data-tone="oracle">
               <div className="ao-header--inverted">Oracle Counsel / 神谕解读</div>
               <OracleStream
-                url="/api/v1/divine/stream"
-                payload={{ birth_date: birthDate, question: question || null }}
+                key={`${originData?.starship?.archive_id || 'o'}-${celestialData?.starship?.archive_id || 'c'}-${inquiryData?.starship?.archive_id || 'i'}-${question || 'q'}`}
+                url="/api/v1/oracle/stream"
+                params={{
+                  origin_id: originData?.starship?.archive_id,
+                  celestial_id: celestialData?.starship?.archive_id,
+                  inquiry_id: inquiryData?.starship?.archive_id,
+                  question: question || ''
+                }}
                 onDone={async (t) => {
                   setInterpretation(t)
-                  // 保存历史记录到后端 JSON（按设备ID区分）
                   try {
                     const device_id = getDeviceId()
                     const record = {
@@ -308,12 +353,11 @@ const CalculatePage: React.FC = () => {
                     await fetch(api('/api/v1/history'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record) })
                   } catch {}
                 }}
+                onError={(e) => {
+                  console.error('oracle stream error', e)
+                }}
               />
             </div>
-          )}
-
-          {canShowFinal && finalTried && !interpretation && (
-            <div className="ao-module" data-tone="oracle"><div className="ao-console-line">⏳ 神谕解读生成中 <span className="ao-cursor"></span></div></div>
           )}
         </div>
       )}

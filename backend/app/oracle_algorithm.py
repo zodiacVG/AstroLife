@@ -200,6 +200,33 @@ def _fallback_interpretation(origin_starship: Dict, celestial_starship: Dict, in
     else:
         return "暂时无法为您提供神谕解读，请稍后再试。"
 
+def stream_oracle_interpretation(
+    origin_starship: Dict,
+    celestial_starship: Dict,
+    inquiry_starship: Dict,
+    question: Optional[str]
+):
+    """流式生成最终神谕解读（生成器）。
+
+    直接把三艘飞船与问题交给 LLM 的 streaming 接口，逐块 yield 文本。
+    前端通过 SSE 接口消费本生成器的增量片段。
+    """
+    if not origin_starship or not celestial_starship or not inquiry_starship:
+        def _gen():
+            yield "缺少必要的飞船，无法生成完整解读。"
+        return _gen()
+
+    try:
+        llm_service = get_llm_service()
+        return llm_service.stream_final_interpretation(
+            origin_starship, celestial_starship, inquiry_starship, question
+        )
+    except Exception:
+        # 回退为一次性组合文本
+        def _gen2():
+            yield _fallback_interpretation(origin_starship, celestial_starship, inquiry_starship)
+        return _gen2()
+
 async def calculate_oracle(
     birth_date_str: str, 
     question: Optional[str] = None

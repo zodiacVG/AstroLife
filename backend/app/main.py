@@ -267,46 +267,73 @@ async def divine_inquiry(payload: DivineInquiryRequest):
         raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
 
 
-@app.post("/api/v1/divine/complete")
-async def divine_complete(payload: CalculationRequest):
-    print('[API] /divine/complete payload:', payload.model_dump())
-    return await calculate_oracle(payload)
+# 已弃用：最终解读走 oracle/stream（SSE），不再使用 complete 端点
 
 
-# Streaming interpretation (chunked text)
-@app.post("/api/v1/divine/stream")
-async def divine_stream(payload: CalculationRequest):
-    """真实流式：先计算三舟，再交给 LLM 流式生成（若可用），否则快速分块回退。"""
+# Streaming interpretation (SSE): 仅 GET（适配原生 EventSource）
+
+
+@app.get("/api/v1/oracle/stream")
+async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str):
+    """使用前端已计算出的三艘飞船与问题，流式生成最终解读（SSE）。"""
     try:
-        from .oracle_algorithm import (
-            load_starships_data, parse_date, calculate_origin_starship, calculate_celestial_starship, calculate_inquiry_starship
-        )
+        from .oracle_algorithm import load_starships_data
         from .llm_service import get_llm_service
 
-        # 计算三舟
+        print('[SSE] /api/v1/oracle/stream params:', {
+            'origin_id': origin_id, 'celestial_id': celestial_id, 'inquiry_id': inquiry_id, 'question': question
+        })
         data = load_starships_data()
         starships = data.get("starships", [])
-        birth = parse_date(payload.birth_date)
-        origin, _ = calculate_origin_starship(birth, starships)
-        from datetime import datetime
-        celestial, _ = calculate_celestial_starship(datetime.now(), starships)
-        inquiry, _ = await calculate_inquiry_starship(payload.question or "", starships)
 
-        try:
-            llm = get_llm_service()
-            gen = llm.stream_final_interpretation(origin, celestial, inquiry, payload.question)
-            return StreamingResponse(gen, media_type="text/plain; charset=utf-8")
-        except Exception as e:
-            # 回退：一次性生成并快速分块
-            from .oracle_algorithm import generate_interpretation
-            text = await generate_interpretation(origin, celestial, inquiry, payload.question)
-            def fast_chunks():
-                step = 256
-                for i in range(0, len(text), step):
-                    yield text[i:i+step]
-            return StreamingResponse(fast_chunks(), media_type="text/plain; charset=utf-8")
+        def _by_id(sid: str):
+            return next((s for s in starships if s.get("archive_id") == sid), None)
+
+        origin = _by_id(origin_id)
+        celestial = _by_id(celestial_id)
+        inquiry = _by_id(inquiry_id)
+        print('[SSE] resolved starships:', {
+            'origin': origin and {'id': origin.get('archive_id'), 'name': origin.get('name_cn')},
+            'celestial': celestial and {'id': celestial.get('archive_id'), 'name': celestial.get('name_cn')},
+            'inquiry': inquiry and {'id': inquiry.get('archive_id'), 'name': inquiry.get('name_cn')},
+        })
+        if not origin or not celestial or not inquiry:
+            raise ValueError("缺少必要的飞船: origin/celestial/inquiry")
+
+        def _sse(event: str, obj: dict):
+            import json as _json
+            return f"event: {event}\ndata: {_json.dumps(obj, ensure_ascii=False)}\n\n"
+
+        def _stream():
+            try:
+                llm = get_llm_service()
+                # 打印发送给模型的提示词（仅用于调试）
+                try:
+                    prompt = llm._build_final_interpretation_prompt(origin, celestial, inquiry, question)  # type: ignore[attr-defined]
+                    print('[SSE] prompt to LLM (first 800):\n' + (prompt[:800] + ('...' if len(prompt) > 800 else '')))
+                except Exception as _e:
+                    print('[SSE] prompt build log failed:', _e)
+                for delta in llm.stream_final_interpretation(origin, celestial, inquiry, question):
+                    if delta:
+                        yield _sse("result", {"output_text": delta})
+                yield _sse("completed", {"ok": True})
+            except Exception as e:
+                yield _sse("error", {"message": str(e)})
+
+        return StreamingResponse(_stream(), media_type="text/event-stream; charset=utf-8", headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"STREAM_ERROR: {e}")
+        def _err():
+            import json as _json
+            yield f"event: error\ndata: {_json.dumps({'message': f'STREAM_ERROR: {e}'}, ensure_ascii=False)}\n\n"
+        return StreamingResponse(_err(), media_type="text/event-stream; charset=utf-8", headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        })
 
 @app.get("/health")
 async def health_check():

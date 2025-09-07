@@ -25,7 +25,8 @@ a.ao-button:hover, .ao-button:hover { text-decoration: none; }
 .ao-link { text-decoration: underline; }
 /* Neutralize legacy app chrome */
 .App { background: transparent !important; color: inherit; }
-.App-header { background: transparent !important; margin-bottom: var(--ao-space-6); }
+/* 移除默认Header多余内边距，消除标题与内容的诡异空隙 */
+.App-header { background: transparent !important; margin-bottom: var(--ao-space-6); padding: 0 !important; }
 
 [data-tone="system"], body { color: var(--ao-color-system); text-shadow: var(--ao-glow-system); }
 [data-tone="oracle"] { color: var(--ao-color-oracle); text-shadow: var(--ao-glow-oracle); }
