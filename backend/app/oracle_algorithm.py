@@ -161,8 +161,9 @@ async def generate_interpretation(
     try:
         # 使用LLM大模型生成最终解读
         llm_service = get_llm_service()
+        # 参数顺序：origin, celestial, inquiry, question
         final_interpretation = await llm_service.generate_final_interpretation(
-            question, origin_starship, celestial_starship, inquiry_starship
+            origin_starship, celestial_starship, inquiry_starship, question
         )
         
         if final_interpretation:

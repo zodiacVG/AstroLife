@@ -164,6 +164,7 @@ async def calculate_oracle_v1(request: CalculationRequest):
 @app.post("/api/v1/divine/origin")
 async def divine_origin(payload: DivineOriginRequest):
     try:
+        print('[API] /divine/origin payload:', payload.model_dump())
         from .oracle_algorithm import parse_date, calculate_origin_starship
         birth_date = parse_date(payload.birth_date)
         starship, score = calculate_origin_starship(birth_date, starships_data.get("starships", []))
@@ -187,6 +188,7 @@ async def divine_origin(payload: DivineOriginRequest):
 @app.post("/api/v1/divine/celestial")
 async def divine_celestial(payload: DivineCelestialRequest):
     try:
+        print('[API] /divine/celestial payload:', payload.model_dump())
         from .oracle_algorithm import parse_date, calculate_celestial_starship
         current_date = parse_date(payload.inquiry_date) if payload.inquiry_date else datetime.now()
         starship, score = calculate_celestial_starship(current_date, starships_data.get("starships", []))
@@ -210,6 +212,7 @@ async def divine_celestial(payload: DivineCelestialRequest):
 @app.post("/api/v1/divine/inquiry")
 async def divine_inquiry(payload: DivineInquiryRequest):
     try:
+        print('[API] /divine/inquiry payload:', payload.model_dump())
         from .oracle_algorithm import calculate_inquiry_starship
         starship, score = await calculate_inquiry_starship(payload.question, starships_data.get("starships", []))
         return {
@@ -231,6 +234,7 @@ async def divine_inquiry(payload: DivineInquiryRequest):
 
 @app.post("/api/v1/divine/complete")
 async def divine_complete(payload: CalculationRequest):
+    print('[API] /divine/complete payload:', payload.model_dump())
     return await calculate_oracle(payload)
 
 @app.get("/health")

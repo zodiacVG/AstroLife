@@ -25,6 +25,7 @@ class LLMService:
             raise ValueError("ALIYUN_BAILIAN_API_KEY环境变量未设置")
         
         # 创建OpenAI兼容客户端
+        # 说明：旧版 openai SDK + httpx 兼容性问题已通过 pin httpx 解决
         self.client = OpenAI(
             api_key=self.api_key,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -54,6 +55,7 @@ class LLMService:
         try:
             # 调用百炼模型
             response = await self._call_bailian_model(prompt)
+            print('[LLM select_question_starship] raw:', (response[:200] + '...') if isinstance(response, str) else response)
             
             # 解析模型响应，提取选择的航天器ID
             selected_starship_id = self._parse_starship_selection(response)
@@ -182,18 +184,41 @@ class LLMService:
                     {"role": "user", "content": prompt}
                 ]
             )
-            
-            if response.choices and response.choices[0].message.content:
-                return response.choices[0].message.content
+            # 兼容响应格式：对象、dict、pydantic/base-model-like
+            content = None
+            try:
+                content = response.choices[0].message.content
+            except Exception:
+                pass
+            if content is None:
+                try:
+                    content = response['choices'][0]['message']['content']  # type: ignore[index]
+                except Exception:
+                    pass
+            if content is None:
+                try:
+                    # openai>=1.0 models may support model_dump()
+                    content = response.model_dump()['choices'][0]['message']['content']  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+
+            if content:
+                return content
             else:
                 raise Exception("模型调用失败: 无有效响应内容")
         except Exception as e:
             print(f"百炼模型调用失败: {e}")
+            # 打印更多上下文信息，帮助排查
+            try:
+                import traceback
+                traceback.print_exc()
+            except Exception:
+                pass
             raise
     
     def _parse_starship_selection(self, response: str) -> Optional[str]:
         """解析航天器选择响应"""
-        lines = response.split('\n')
+        lines = response.split('\n') if isinstance(response, str) else []
         for line in lines:
             if line.startswith('SELECTED_ID:'):
                 return line.split('SELECTED_ID:')[1].strip()
