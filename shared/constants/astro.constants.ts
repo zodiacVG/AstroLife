@@ -8,10 +8,17 @@ export const CORE_CONSTANTS = {
   
   // API端点
   API_ENDPOINTS: {
-    calculate: '/api/calculate',
-    spacecraft: '/api/spacecraft',
-    health: '/api/health',
-    batch_calculate: '/api/batch/calculate'
+    calculate: '/api/v1/calculate',
+    starships: '/api/v1/starships',
+    health: '/api/v1/health',
+    // 预留：批量计算（后端尚未实现）
+    batch_calculate: '/api/v1/batch/calculate',
+    divine: {
+      origin: '/api/v1/divine/origin',
+      celestial: '/api/v1/divine/celestial',
+      inquiry: '/api/v1/divine/inquiry',
+      complete: '/api/v1/divine/complete',
+    }
   },
   
   // 计算类型

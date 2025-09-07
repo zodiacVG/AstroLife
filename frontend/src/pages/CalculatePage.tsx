@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { api } from '../lib/api'
 
 const CalculatePage: React.FC = () => {
   const [birthDate, setBirthDate] = useState('')
@@ -17,7 +18,7 @@ const CalculatePage: React.FC = () => {
 
     try {
       // 调用后端API
-      const response = await fetch('http://localhost:8000/calculate', {
+      const response = await fetch(api('/api/v1/calculate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,7 +31,8 @@ const CalculatePage: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json()
-        setResult(data)
+        // 兼容包裹响应与直出响应
+        setResult(data?.data ?? data)
       } else {
         throw new Error('计算失败')
       }
@@ -85,40 +87,40 @@ const CalculatePage: React.FC = () => {
           {/* 三体共振显示 */}
           <div className="starships-grid">
             {/* 本命星舟 */}
-            {result.destiny_starship && (
+            {(result.starships?.origin || result.destiny_starship) && (
               <div className="starship-card destiny">
                 <h4>🚀 本命星舟</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{result.destiny_starship.name_cn}</div>
-                  <div className="starship-id">ID: {result.destiny_starship.archive_id}</div>
-                  <div className="starship-description">{result.destiny_starship.mission_description}</div>
-                  <div className="match-score">匹配得分: {result.match_scores?.destiny || 0}</div>
+                  <div className="starship-name">{(result.starships?.origin || result.destiny_starship).name_cn}</div>
+                  <div className="starship-id">ID: {(result.starships?.origin || result.destiny_starship).archive_id}</div>
+                  <div className="starship-description">{(result.starships?.origin || result.destiny_starship).mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.origin ?? result.match_scores?.destiny ?? 0}</div>
                 </div>
               </div>
             )}
 
             {/* 天时星舟 */}
-            {result.timely_starship && (
+            {(result.starships?.celestial || result.timely_starship) && (
               <div className="starship-card timely">
                 <h4>⏰ 天时星舟</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{result.timely_starship.name_cn}</div>
-                  <div className="starship-id">ID: {result.timely_starship.archive_id}</div>
-                  <div className="starship-description">{result.timely_starship.mission_description}</div>
-                  <div className="match-score">匹配得分: {result.match_scores?.timely || 0}</div>
+                  <div className="starship-name">{(result.starships?.celestial || result.timely_starship).name_cn}</div>
+                  <div className="starship-id">ID: {(result.starships?.celestial || result.timely_starship).archive_id}</div>
+                  <div className="starship-description">{(result.starships?.celestial || result.timely_starship).mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.celestial ?? result.match_scores?.timely ?? 0}</div>
                 </div>
               </div>
             )}
 
             {/* 问道星舟 */}
-            {result.question_starship && (
+            {(result.starships?.inquiry || result.question_starship) && (
               <div className="starship-card question">
                 <h4>❓ 问道星舟</h4>
                 <div className="starship-info">
-                  <div className="starship-name">{result.question_starship.name_cn}</div>
-                  <div className="starship-id">ID: {result.question_starship.archive_id}</div>
-                  <div className="starship-description">{result.question_starship.mission_description}</div>
-                  <div className="match-score">匹配得分: {result.match_scores?.question || 0}</div>
+                  <div className="starship-name">{(result.starships?.inquiry || result.question_starship).name_cn}</div>
+                  <div className="starship-id">ID: {(result.starships?.inquiry || result.question_starship).archive_id}</div>
+                  <div className="starship-description">{(result.starships?.inquiry || result.question_starship).mission_description}</div>
+                  <div className="match-score">匹配得分: {result.match_scores?.inquiry ?? result.match_scores?.question ?? 0}</div>
                 </div>
               </div>
             )}

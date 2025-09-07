@@ -65,8 +65,8 @@ def calculate_keyword_similarity(question_words: List[str], spacecraft_keywords:
     
     return min(match_score, 1.0)
 
-# 核心占卜算法
-def calculate_destiny_starship(birth_date: datetime, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
+# 核心占卜算法（统一命名：origin/celestial/inquiry）
+def calculate_origin_starship(birth_date: datetime, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
     """
     计算命运航天器（基于出生日期）
     返回匹配的航天器和匹配分数
@@ -90,7 +90,7 @@ def calculate_destiny_starship(birth_date: datetime, starships_data: List[Dict])
     
     return best_match, best_score
 
-def calculate_timely_starship(current_date: datetime, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
+def calculate_celestial_starship(current_date: datetime, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
     """
     计算时运航天器（基于当前日期）
     """
@@ -113,29 +113,21 @@ def calculate_timely_starship(current_date: datetime, starships_data: List[Dict]
     
     return best_match, best_score
 
-async def calculate_question_starship(question: str, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
-    """
-    计算问题航天器（使用LLM大模型智能选择）
-    """
+async def calculate_inquiry_starship(question: str, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
+    """计算问题航天器：仅允许使用 LLM，不进行关键词回退"""
     if not question:
         return None, 0.0
-    
     try:
-        # 使用LLM大模型智能选择航天器
         llm_service = get_llm_service()
         selected_starship = await llm_service.select_question_starship(question, starships_data)
-        
         if selected_starship:
-            # 返回匹配的航天器和固定高分（因为是大模型选择的）
             return selected_starship, 0.9
-        else:
-            # 大模型选择失败，回退到关键词匹配
-            return _fallback_keyword_matching(question, starships_data)
-            
+        # LLM未能选择返回空
+        return None, 0.0
     except Exception as e:
         print(f"LLM选择问题航天器失败: {e}")
-        # 失败时回退到关键词匹配
-        return _fallback_keyword_matching(question, starships_data)
+        # 不允许关键词回退，直接返回空
+        return None, 0.0
 
 def _fallback_keyword_matching(question: str, starships_data: List[Dict]) -> Tuple[Optional[Dict], float]:
     """回退到关键词匹配算法"""
@@ -157,49 +149,49 @@ def _fallback_keyword_matching(question: str, starships_data: List[Dict]) -> Tup
     return best_match, best_score
 
 async def generate_interpretation(
-    destiny_starship: Optional[Dict], 
-    timely_starship: Optional[Dict], 
-    question_starship: Optional[Dict],
+    origin_starship: Optional[Dict], 
+    celestial_starship: Optional[Dict], 
+    inquiry_starship: Optional[Dict],
     question: Optional[str]
 ) -> str:
     """生成神谕解读文本（使用LLM大模型智能生成）"""
-    if not destiny_starship or not timely_starship or not question_starship:
+    if not origin_starship or not celestial_starship or not inquiry_starship:
         return "无法生成完整的神谕解读，请确保所有航天器都已正确匹配。"
     
     try:
         # 使用LLM大模型生成最终解读
         llm_service = get_llm_service()
         final_interpretation = await llm_service.generate_final_interpretation(
-            question, destiny_starship, timely_starship, question_starship
+            question, origin_starship, celestial_starship, inquiry_starship
         )
         
         if final_interpretation:
             return final_interpretation
         else:
             # LLM生成失败，回退到预定义文本组合
-            return _fallback_interpretation(destiny_starship, timely_starship, question_starship)
+            return _fallback_interpretation(origin_starship, celestial_starship, inquiry_starship)
             
     except Exception as e:
         print(f"LLM生成神谕解读失败: {e}")
         # 失败时回退到预定义文本组合
-        return _fallback_interpretation(destiny_starship, timely_starship, question_starship)
+        return _fallback_interpretation(origin_starship, celestial_starship, inquiry_starship)
 
-def _fallback_interpretation(destiny_starship: Dict, timely_starship: Dict, question_starship: Dict) -> str:
+def _fallback_interpretation(origin_starship: Dict, celestial_starship: Dict, inquiry_starship: Dict) -> str:
     """回退到预定义文本组合"""
     # 组合预定义文本
     interpretation_parts = []
     
     # 命运航天器解读
-    if destiny_starship.get("oracle_interpretation"):
-        interpretation_parts.append(f"命运航天器 {destiny_starship['name_cn']}：{destiny_starship['oracle_interpretation']}")
+    if origin_starship.get("oracle_interpretation"):
+        interpretation_parts.append(f"本命星舟 {origin_starship['name_cn']}：{origin_starship['oracle_interpretation']}")
     
     # 时运航天器解读
-    if timely_starship.get("oracle_interpretation"):
-        interpretation_parts.append(f"时运航天器 {timely_starship['name_cn']}：{timely_starship['oracle_interpretation']}")
+    if celestial_starship.get("oracle_interpretation"):
+        interpretation_parts.append(f"天时星舟 {celestial_starship['name_cn']}：{celestial_starship['oracle_interpretation']}")
     
     # 问题航天器解读
-    if question_starship.get("oracle_interpretation"):
-        interpretation_parts.append(f"问题航天器 {question_starship['name_cn']}：{question_starship['oracle_interpretation']}")
+    if inquiry_starship.get("oracle_interpretation"):
+        interpretation_parts.append(f"问道星舟 {inquiry_starship['name_cn']}：{inquiry_starship['oracle_interpretation']}")
     
     # 组合所有解读
     if interpretation_parts:
@@ -224,25 +216,27 @@ async def calculate_oracle(
     current_date = datetime.now()
     
     # 计算三个航天器
-    destiny_starship, destiny_score = calculate_destiny_starship(birth_date, starships)
-    timely_starship, timely_score = calculate_timely_starship(current_date, starships)
-    question_starship, question_score = await calculate_question_starship(question, starships)
+    origin_starship, origin_score = calculate_origin_starship(birth_date, starships)
+    celestial_starship, celestial_score = calculate_celestial_starship(current_date, starships)
+    inquiry_starship, inquiry_score = await calculate_inquiry_starship(question, starships)
     
     # 生成解读（异步调用LLM）
     interpretation = await generate_interpretation(
-        destiny_starship, timely_starship, question_starship, question
+        origin_starship, celestial_starship, inquiry_starship, question
     )
     
     return {
         "birth_date": birth_date_str,
         "question": question,
-        "destiny_starship": destiny_starship,
-        "timely_starship": timely_starship,
-        "question_starship": question_starship,
+        "starships": {
+            "origin": origin_starship,
+            "celestial": celestial_starship,
+            "inquiry": inquiry_starship
+        },
         "match_scores": {
-            "destiny": round(destiny_score, 3),
-            "timely": round(timely_score, 3),
-            "question": round(question_score, 3)
+            "origin": round(origin_score, 3),
+            "celestial": round(celestial_score, 3),
+            "inquiry": round(inquiry_score, 3)
         },
         "interpretation": interpretation,
         "calculation_time": current_date.isoformat(),

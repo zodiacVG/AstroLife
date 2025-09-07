@@ -13,6 +13,18 @@ from pathlib import Path
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
+def _parse_cors_origins() -> list[str]:
+    origins_env = os.getenv("CORS_ALLOW_ORIGINS", "")
+    if origins_env:
+        return [o.strip() for o in origins_env.split(",") if o.strip()]
+    # 默认允许本机常用端口
+    return [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
 app = FastAPI(
     title="星航预言家 API",
     description="基于航天器神谕的智能占卜系统",
@@ -22,7 +34,7 @@ app = FastAPI(
 # CORS配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://192.168.2.145:5173", "http://192.168.2.145:5174", "http://192.168.2.145:5175"],
+    allow_origins=_parse_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,6 +55,15 @@ class CalculationRequest(BaseModel):
     birth_date: str  # YYYY-MM-DD格式
     question: Optional[str] = None
 
+class DivineOriginRequest(BaseModel):
+    birth_date: str
+
+class DivineCelestialRequest(BaseModel):
+    inquiry_date: Optional[str] = None  # 缺省为当前日期
+
+class DivineInquiryRequest(BaseModel):
+    question: str
+
 class AstroSpacecraft(BaseModel):
     archive_id: str
     name_cn: str
@@ -56,9 +77,9 @@ class AstroSpacecraft(BaseModel):
 
 class CalculationResult(BaseModel):
     birth_date: str
-    destiny_starship: Optional[AstroSpacecraft] = None
-    timely_starship: Optional[AstroSpacecraft] = None
-    question_starship: Optional[AstroSpacecraft] = None
+    question: Optional[str] = None
+    # 标准化结构：三体结果聚合
+    starships: Optional[dict] = None
     interpretation: Optional[str] = None
 
 @app.get("/")
@@ -69,10 +90,29 @@ async def root():
         "starships_count": len(starships_data.get('starships', []))
     }
 
+# --- v1 规范化 API ---
+@app.get("/api/v1")
+async def api_v1_root():
+    return {
+        "success": True,
+        "message": "AstroLife API v1",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat(),
+    }
+
 @app.get("/starships")
 async def get_starships():
     """获取所有航天器数据"""
     return starships_data
+
+@app.get("/api/v1/starships")
+async def get_starships_v1():
+    return {
+        "success": True,
+        "data": starships_data,
+        "message": "OK",
+        "timestamp": datetime.now().isoformat(),
+    }
 
 @app.get("/starships/{archive_id}")
 async def get_starship(archive_id: str):
@@ -81,6 +121,18 @@ async def get_starship(archive_id: str):
     if not starship:
         raise HTTPException(status_code=404, detail="航天器未找到")
     return starship
+
+@app.get("/api/v1/starships/{archive_id}")
+async def get_starship_v1(archive_id: str):
+    starship = next((s for s in starships_data['starships'] if s['archive_id'] == archive_id), None)
+    if not starship:
+        raise HTTPException(status_code=404, detail="航天器未找到")
+    return {
+        "success": True,
+        "data": starship,
+        "message": "OK",
+        "timestamp": datetime.now().isoformat(),
+    }
 
 @app.post("/calculate")
 async def calculate_oracle(request: CalculationRequest):
@@ -104,6 +156,83 @@ async def calculate_oracle(request: CalculationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"计算错误: {str(e)}")
 
+@app.post("/api/v1/calculate")
+async def calculate_oracle_v1(request: CalculationRequest):
+    return await calculate_oracle(request)
+
+# ---- Divine endpoints (v1) ----
+@app.post("/api/v1/divine/origin")
+async def divine_origin(payload: DivineOriginRequest):
+    try:
+        from .oracle_algorithm import parse_date, calculate_origin_starship
+        birth_date = parse_date(payload.birth_date)
+        starship, score = calculate_origin_starship(birth_date, starships_data.get("starships", []))
+        return {
+            "success": True,
+            "data": {
+                "type": "origin",
+                "starship": starship,
+                "match_score": round(score, 3),
+                "basis": "birth_date vs launch_date"
+            },
+            "message": "OK",
+            "timestamp": datetime.now().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_DATE_FORMAT", "message": str(e)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
+
+
+@app.post("/api/v1/divine/celestial")
+async def divine_celestial(payload: DivineCelestialRequest):
+    try:
+        from .oracle_algorithm import parse_date, calculate_celestial_starship
+        current_date = parse_date(payload.inquiry_date) if payload.inquiry_date else datetime.now()
+        starship, score = calculate_celestial_starship(current_date, starships_data.get("starships", []))
+        return {
+            "success": True,
+            "data": {
+                "type": "celestial",
+                "starship": starship,
+                "match_score": round(score, 3),
+                "basis": "inquiry_date vs launch_date"
+            },
+            "message": "OK",
+            "timestamp": datetime.now().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_DATE_FORMAT", "message": str(e)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
+
+
+@app.post("/api/v1/divine/inquiry")
+async def divine_inquiry(payload: DivineInquiryRequest):
+    try:
+        from .oracle_algorithm import calculate_inquiry_starship
+        starship, score = await calculate_inquiry_starship(payload.question, starships_data.get("starships", []))
+        return {
+            "success": True,
+            "data": {
+                "type": "inquiry",
+                "starship": starship,
+                "match_score": round(score, 3),
+                "basis": "LLM only"
+            },
+            "message": "OK",
+            "timestamp": datetime.now().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"code": "MISSING_REQUIRED_FIELD", "message": str(e)})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
+
+
+@app.post("/api/v1/divine/complete")
+async def divine_complete(payload: CalculationRequest):
+    return await calculate_oracle(payload)
+
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
@@ -111,6 +240,19 @@ async def health_check():
         "status": "healthy",
         "model": os.getenv("ALIYUN_BAILIAN_MODEL"),
         "api_key_configured": bool(os.getenv("ALIYUN_BAILIAN_API_KEY"))
+    }
+
+@app.get("/api/v1/health")
+async def health_check_v1():
+    return {
+        "success": True,
+        "data": {
+            "status": "healthy",
+            "model": os.getenv("ALIYUN_BAILIAN_MODEL"),
+            "api_key_configured": bool(os.getenv("ALIYUN_BAILIAN_API_KEY"))
+        },
+        "message": "OK",
+        "timestamp": datetime.now().isoformat(),
     }
 
 if __name__ == "__main__":

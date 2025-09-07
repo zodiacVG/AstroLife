@@ -1,28 +1,40 @@
 # 🚀 星航预言家 AstroLife
 
-基于航天器神谕的智能占卜系统，通过"三体共鸣"理论为用户提供深度个性化的人生指导。
+基于航天器神谕的智能占卜系统，通过「三体共鸣」理论为用户提供个性化指引。
 
-## 📁 项目结构
+## 📁 项目结构（当前）
 
 ```
-AstroLife/                 # Monorepo根目录
-├── frontend/              # React前端应用
-├── backend/               # FastAPI后端服务
-├── shared/                # 共享资源
+AstroLife/                 # Monorepo 根目录
+├── frontend/              # React + Vite 前端
+├── backend/               # FastAPI 后端
+├── shared/                # 前后端共享资源
 │   ├── astro_data/        # 航天器数据
 │   └── types/             # 共享类型定义
 ├── docs/                  # 项目文档
-└── docker-compose.yml     # 容器化部署
+└── README.md
 ```
 
-## 🚀 快速开始
+提示：旧文档 docs/monorepo-structure.md 描述了另一套 Next.js/Express 架构，已不再适配当前实现。请以本 README 与 docs 下的最新指南为准。
 
-### 1. 安装依赖
+## ⚙️ 环境要求
+
+- Node.js 18+（前端）
+- npm 9+（或你偏好的包管理器）
+- Python 3.10+（后端）
+
+## 🚀 快速开始（本地开发）
+
+1) 安装依赖
 ```bash
 npm run install:all
 ```
 
-### 2. 启动开发环境
+2) 配置后端环境变量（可选但推荐）
+- 复制 `backend/.env.example` 为 `backend/.env` 并完善
+- 至少配置：`ALIYUN_BAILIAN_API_KEY`（如需启用 LLM 能力）
+
+3) 启动开发环境
 ```bash
 npm run dev
 ```
@@ -30,78 +42,59 @@ npm run dev
 访问：
 - 前端: http://localhost:5173
 - 后端: http://localhost:8000
-- API文档: http://localhost:8000/docs
+- API 文档: http://localhost:8000/docs
 
-### 3. 技术栈
+说明：前端通过环境变量 `VITE_API_URL` 访问后端（见 `frontend/.env.example` 与 `frontend/src/lib/api.ts`）。
 
-**前端**
-- React 18 + TypeScript
-- Vite构建工具
-- TailwindCSS样式
-- Zustand状态管理
-
-**后端**
-- FastAPI框架
-- OpenAI集成
-- SQLite数据库
-- Docker容器化
-
-## 📊 数据架构
-
-- **航天器数据**: 17个历史航天器完整档案
-- **神谕数据**: 每个航天器的象征意义和解读
-- **三体共鸣**: 本命/问道/天时星舟智能匹配
-
-## 🎯 核心功能
-
-1. **智能占卜**: 基于出生日期、问题、时间的三体匹配
-2. **诗意解读**: AI生成的四段式深度神谕
-3. **可视化**: 星舟卡片和航线图表
-4. **历史追溯**: 完整的占卜记录
-
-## 📖 开发文档
-
-- [产品需求文档](./docs/PRD.md)
-- [技术架构](./docs/monorepo-structure.md)
-- [API文档](./backend/README.md)
-- [前端指南](./frontend/README.md)
-
-## 🔧 开发命令
+## 🧰 常用命令
 
 ```bash
-# 一键启动
+# 一键开发（前后端同时）
 npm run dev
 
-# 单独启动
-npm run dev:frontend    # 前端开发
-npm run dev:backend     # 后端开发
+# 分别启动
+npm run dev:frontend
+npm run dev:backend
 
-# 构建部署
-npm run build
-npm run docker:up
+# 构建
+npm run build           # 构建前端；后端无需编译
+npm run build:frontend
+
+# 生产运行（本地验证）
+npm run start           # 并行运行：Vite preview + Uvicorn
+npm run start:frontend  # Vite preview
+npm run start:backend   # Uvicorn（无 reload）
+
+# 清理构建产物
+npm run clean
 ```
 
-## 🐳 Docker部署
+## 🧪 技术栈
 
-```bash
-docker-compose up -d
-```
+- 前端：React 18、TypeScript、Vite、Tailwind、Zustand
+- 后端：FastAPI、Uvicorn、python-dotenv
+- AI 集成：阿里云百炼（OpenAI 兼容模式，可选）
 
-## 📈 项目状态
+数据说明：星舟数据支持动态扩展（不受固定数量限制），可由外部数据库或数据源持续新增。
 
-- ✅ 数据架构设计完成
-- ✅ 三体共鸣算法实现
-- ✅ Monorepo结构搭建
-- 🔄 前端界面开发中
-- 🔄 后端API开发中
+## 📖 开发与配置文档
 
-## 🤝 贡献指南
+- 前端开发指南：`frontend/README.md`
+- 后端开发与 API：`backend/README.md`
+- 环境变量与启动流程：`docs/DEVELOPMENT.md`
+- 部署指引（Zeabur 示例）：`docs/zeabur-deployment.md`
 
-1. Fork项目
-2. 创建功能分支
-3. 提交PR
-4. 通过代码审查
+## 📌 已知事项
+
+- `docs/monorepo-structure.md` 与当前实现不一致，仅作历史参考。
+- 仓库中存在 `frontend/node_modules` 目录历史残留，已在 `.gitignore` 忽略，后续可清理。
+
+## 🤝 贡献
+
+1. 创建分支进行修改
+2. 提交 PR 并说明变更
+3. 通过代码审查后合并
 
 ## 📄 许可证
 
-MIT License - 详见 [LICENSE](./LICENSE) 文件
+MIT

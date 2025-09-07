@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 
 interface Starship {
   archive_id: string
@@ -22,10 +23,11 @@ const StarshipsPage: React.FC = () => {
 
   const fetchStarships = async () => {
     try {
-      const response = await fetch('http://localhost:8000/starships')
+      const response = await fetch(api('/api/v1/starships'))
       if (response.ok) {
         const data = await response.json()
-        setStarships(data.starships || [])
+        const list = (data?.data?.starships) || data.starships || []
+        setStarships(list)
       } else {
         throw new Error('获取数据失败')
       }
@@ -43,7 +45,7 @@ const StarshipsPage: React.FC = () => {
   return (
     <div className="starships-page">
       <h2>航天器档案</h2>
-      <p className="page-description">探索17艘历史航天器的神谕与使命</p>
+      <p className="page-description">探索航天器档案与神谕使命</p>
 
       <div className="starships-grid">
         {starships.map((starship) => (

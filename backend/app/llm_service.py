@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 class LLMService:
-    """阿里云百炼模型服务"""
+    """阿里云百炼模型服务（统一命名：本命/天时/问道）"""
     
     def __init__(self):
         self.api_key = os.getenv("ALIYUN_BAILIAN_API_KEY")
@@ -73,9 +73,9 @@ class LLMService:
     
     async def generate_final_interpretation(
         self,
-        destiny_starship: Optional[Dict],
-        timely_starship: Optional[Dict], 
-        question_starship: Optional[Dict],
+        origin_starship: Optional[Dict],
+        celestial_starship: Optional[Dict], 
+        inquiry_starship: Optional[Dict],
         question: Optional[str]
     ) -> str:
         """
@@ -92,7 +92,7 @@ class LLMService:
         """
         # 构建最终解读提示词
         prompt = self._build_final_interpretation_prompt(
-            destiny_starship, timely_starship, question_starship, question
+            origin_starship, celestial_starship, inquiry_starship, question
         )
         
         try:
@@ -103,7 +103,7 @@ class LLMService:
             print(f"大模型生成解读失败: {e}")
             # 失败时回退到预定义文本
             return self._fallback_interpretation(
-                destiny_starship, timely_starship, question_starship, question
+                origin_starship, celestial_starship, inquiry_starship, question
             )
     
     def _build_starship_selection_prompt(
@@ -133,25 +133,25 @@ class LLMService:
     
     def _build_final_interpretation_prompt(
         self,
-        destiny_starship: Optional[Dict],
-        timely_starship: Optional[Dict], 
-        question_starship: Optional[Dict],
+        origin_starship: Optional[Dict],
+        celestial_starship: Optional[Dict], 
+        inquiry_starship: Optional[Dict],
         question: Optional[str]
     ) -> str:
         """构建最终解读提示词"""
         starships_info = []
         
-        if destiny_starship:
+        if origin_starship:
             starships_info.append(
-                f"命运航天器: {destiny_starship['name_cn']} - {destiny_starship['oracle_text']}"
+                f"本命星舟: {origin_starship['name_cn']} - {origin_starship['oracle_text']}"
             )
-        if timely_starship:
+        if celestial_starship:
             starships_info.append(
-                f"时运航天器: {timely_starship['name_cn']} - {timely_starship['oracle_text']}"
+                f"天时星舟: {celestial_starship['name_cn']} - {celestial_starship['oracle_text']}"
             )
-        if question_starship:
+        if inquiry_starship:
             starships_info.append(
-                f"问题航天器: {question_starship['name_cn']} - {question_starship['oracle_text']}"
+                f"问道星舟: {inquiry_starship['name_cn']} - {inquiry_starship['oracle_text']}"
             )
         
         starships_text = "\n".join(starships_info) if starships_info else "暂无航天器匹配"
@@ -201,25 +201,25 @@ class LLMService:
     
     def _fallback_interpretation(
         self,
-        destiny_starship: Optional[Dict],
-        timely_starship: Optional[Dict], 
-        question_starship: Optional[Dict],
+        origin_starship: Optional[Dict],
+        celestial_starship: Optional[Dict], 
+        inquiry_starship: Optional[Dict],
         question: Optional[str]
     ) -> str:
         """大模型失败时的回退解读"""
         interpretations = []
         
-        if destiny_starship:
+        if origin_starship:
             interpretations.append(
-                f"你的命运航天器{destiny_starship['name_cn']}启示: {destiny_starship['oracle_text']}"
+                f"你的本命星舟{origin_starship['name_cn']}启示: {origin_starship['oracle_text']}"
             )
-        if timely_starship and timely_starship != destiny_starship:
+        if celestial_starship and celestial_starship != origin_starship:
             interpretations.append(
-                f"当前时运航天器{timely_starship['name_cn']}提醒: {timely_starship['oracle_text'][:100]}..."
+                f"当前天时星舟{celestial_starship['name_cn']}提醒: {celestial_starship['oracle_text'][:100]}..."
             )
-        if question_starship and question:
+        if inquiry_starship and question:
             interpretations.append(
-                f"对于你的问题，{question_starship['name_cn']}回应: {question_starship['oracle_text']}"
+                f"对于你的问题，{inquiry_starship['name_cn']}回应: {inquiry_starship['oracle_text']}"
             )
         
         if interpretations:

@@ -3,10 +3,10 @@
 ## 数据文件结构
 
 ### starships.json
-包含17条经典航天器任务数据，整合了原有的astro_facts_data.json和astro_oracle_data.json数据。
+包含航天器任务数据（数量可扩展），整合了原有的 astro_facts_data.json 与 astro_oracle_data.json 数据。
 
 **字段说明**:
-- `archive_id`: 唯一标识符 (001-017)
+- `archive_id`: 唯一标识符（不限定范围与格式）
 - `name_cn`: 中文名称
 - `name_official`: 官方英文/俄文名称
 - `launch_date`: 发射日期 (YYYY-MM-DD格式，空字符串表示未发射)

@@ -37,29 +37,16 @@ AstroLife/
 - 选择相同 GitHub 仓库
 - 配置：
   - **根目录**: `backend`
-  - **启动命令**: `python app.py` (或 `uvicorn app.main:app --host 0.0.0.0 --port 8000`)
+  - **启动命令**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
 **环境变量**:
-- `PORT`: 8000 (Zeabur 会自动分配)
-- `DATABASE_URL`: 数据库连接 (如需要)
+- `PORT`: 平台自动分配（请使用 `$PORT`）
+- `ALIYUN_BAILIAN_API_KEY`: 如需启用 LLM 能力
+- `ALIYUN_BAILIAN_MODEL`: 可选，默认 `qwen-plus`
 
 ### 3. 共享数据访问
 
-**前端访问共享数据**:
-```javascript
-// 直接通过路径访问
-import starshipsData from '../shared/astro_data/starships.json'
-```
-
-**后端访问共享数据**:
-```python
-import json
-import os
-
-# 相对路径访问
-with open('../shared/astro_data/starships.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
-```
+共享数据由后端按项目根路径解析，无需额外配置部署路径。
 
 ## 部署后配置
 
@@ -79,10 +66,8 @@ app.add_middleware(
 ```
 
 ### API 地址更新
-部署后更新前端环境变量：
-```bash
-VITE_API_URL=https://your-backend.zeabur.app
-```
+前端通过环境变量 `VITE_API_URL` 指定后端地址，请在部署平台配置：
+`VITE_API_URL=https://your-backend.zeabur.app`
 
 ## 常见问题
 
