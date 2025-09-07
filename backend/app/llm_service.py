@@ -107,6 +107,47 @@ class LLMService:
             return self._fallback_interpretation(
                 origin_starship, celestial_starship, inquiry_starship, question
             )
+
+    def stream_final_interpretation(
+        self,
+        origin_starship: Optional[Dict],
+        celestial_starship: Optional[Dict],
+        inquiry_starship: Optional[Dict],
+        question: Optional[str]
+    ):
+        """流式生成神谕解读（OpenAI 兼容 streaming）。
+        返回一个同步生成器，逐块yield文本，适配 FastAPI StreamingResponse。
+        """
+        prompt = self._build_final_interpretation_prompt(
+            origin_starship, celestial_starship, inquiry_starship, question
+        )
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                stream=True,
+                messages=[
+                    {"role": "system", "content": "你是一个星航预言家助手，需要根据航天器神谕回答问题。"},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            for chunk in stream:
+                delta = None
+                # 兼容多种字段结构
+                try:
+                    delta = chunk.choices[0].delta.content
+                except Exception:
+                    try:
+                        delta = chunk["choices"][0]["delta"]["content"]  # type: ignore[index]
+                    except Exception:
+                        delta = None
+                if delta:
+                    yield delta
+        except Exception as e:
+            # 失败时一次性回退
+            fallback = self._fallback_interpretation(
+                origin_starship, celestial_starship, inquiry_starship, question
+            )
+            yield fallback
     
     def _build_starship_selection_prompt(
         self, 

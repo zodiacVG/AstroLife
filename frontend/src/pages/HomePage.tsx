@@ -3,37 +3,22 @@ import { Link } from 'react-router-dom'
 
 const HomePage: React.FC = () => {
   return (
-    <div className="home-page">
-      <div className="hero-section">
-        <h2>欢迎来到星航预言家</h2>
-        <p>通过航天器的神谕，探索你的命运轨迹</p>
+    <div className="ao-container ao-screen">
+      <h2 className="ao-screen__title">Console / 控制台</h2>
 
-        <div className="cta-buttons">
-          <Link to="/calculate" className="btn btn-primary">
-            开始占卜
-          </Link>
-          <Link to="/starships" className="btn btn-secondary">
-            查看航天器
-          </Link>
+      <div className="ao-module">
+        <div className="ao-header--inverted">WELCOME / 欢迎</div>
+        <div className="ao-console-line">以航天器为象，取其历程与精神，折射个人当下与远方的走向。非灵异，乃叙事与概率的交汇。 <span className="ao-cursor" /></div>
+        <div style={{marginTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap'}}>
+          <Link to="/calculate" className="ao-button">开始占卜</Link>
+          <Link to="/starships" className="ao-button">查看航天器</Link>
         </div>
       </div>
 
-      <div className="features-section">
-        <h3>特色功能</h3>
-        <div className="features-grid">
-          <div className="feature-card">
-            <h4>本命星舟</h4>
-            <p>根据你的出生日期，找到与你命运相连的航天器</p>
-          </div>
-          <div className="feature-card">
-            <h4>天时星舟</h4>
-            <p>洞察当前时运，把握最佳时机</p>
-          </div>
-          <div className="feature-card">
-            <h4>问道星舟</h4>
-            <p>针对特定问题，获得神谕指引</p>
-          </div>
-        </div>
+      <div className="ao-module">
+        <div className="ao-header--standard">Principle / 原理</div>
+        <div className="ao-console-line">三舟共振：本命（Origin）、天时（Celestial）、问道（Inquiry）</div>
+        <div className="ao-console-line">以时间与叙事的“匹配”生象，由模型生成可读的劝告</div>
       </div>
     </div>
   )

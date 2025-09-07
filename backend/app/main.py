@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 from dotenv import load_dotenv
 import json
@@ -81,6 +83,39 @@ class CalculationResult(BaseModel):
     # 标准化结构：三体结果聚合
     starships: Optional[dict] = None
     interpretation: Optional[str] = None
+
+# ---- History models ----
+class HistoryItem(BaseModel):
+    id: str
+    device_id: str
+    time: int
+    birth_date: str
+    question: Optional[str] = None
+    origin: Optional[Dict[str, Any]] = None
+    celestial: Optional[Dict[str, Any]] = None
+    inquiry: Optional[Dict[str, Any]] = None
+    interpretation: Optional[str] = None
+
+def _history_path() -> Path:
+    backend_dir = Path(__file__).parent.parent
+    data_dir = backend_dir / 'data'
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir / 'history.json'
+
+def _read_history() -> List[Dict[str, Any]]:
+    path = _history_path()
+    if not path.exists():
+        return []
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+def _write_history(items: List[Dict[str, Any]]):
+    path = _history_path()
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
 
 @app.get("/")
 async def root():
@@ -237,6 +272,42 @@ async def divine_complete(payload: CalculationRequest):
     print('[API] /divine/complete payload:', payload.model_dump())
     return await calculate_oracle(payload)
 
+
+# Streaming interpretation (chunked text)
+@app.post("/api/v1/divine/stream")
+async def divine_stream(payload: CalculationRequest):
+    """真实流式：先计算三舟，再交给 LLM 流式生成（若可用），否则快速分块回退。"""
+    try:
+        from .oracle_algorithm import (
+            load_starships_data, parse_date, calculate_origin_starship, calculate_celestial_starship, calculate_inquiry_starship
+        )
+        from .llm_service import get_llm_service
+
+        # 计算三舟
+        data = load_starships_data()
+        starships = data.get("starships", [])
+        birth = parse_date(payload.birth_date)
+        origin, _ = calculate_origin_starship(birth, starships)
+        from datetime import datetime
+        celestial, _ = calculate_celestial_starship(datetime.now(), starships)
+        inquiry, _ = await calculate_inquiry_starship(payload.question or "", starships)
+
+        try:
+            llm = get_llm_service()
+            gen = llm.stream_final_interpretation(origin, celestial, inquiry, payload.question)
+            return StreamingResponse(gen, media_type="text/plain; charset=utf-8")
+        except Exception as e:
+            # 回退：一次性生成并快速分块
+            from .oracle_algorithm import generate_interpretation
+            text = await generate_interpretation(origin, celestial, inquiry, payload.question)
+            def fast_chunks():
+                step = 256
+                for i in range(0, len(text), step):
+                    yield text[i:i+step]
+            return StreamingResponse(fast_chunks(), media_type="text/plain; charset=utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"STREAM_ERROR: {e}")
+
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
@@ -258,6 +329,20 @@ async def health_check_v1():
         "message": "OK",
         "timestamp": datetime.now().isoformat(),
     }
+
+# ---- History endpoints ----
+@app.get("/api/v1/history")
+async def get_history(device_id: str):
+    items = _read_history()
+    filtered = [x for x in items if x.get('device_id') == device_id]
+    return {"success": True, "data": filtered, "message": "OK", "timestamp": datetime.now().isoformat()}
+
+@app.post("/api/v1/history")
+async def add_history(item: HistoryItem):
+    items = _read_history()
+    items.append(item.model_dump())
+    _write_history(items)
+    return {"success": True, "data": item.model_dump(), "message": "SAVED", "timestamp": datetime.now().isoformat()}
 
 if __name__ == "__main__":
     import uvicorn

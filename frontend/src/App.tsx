@@ -1,20 +1,31 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
+import GlobalBar from './components/GlobalBar'
 
 // 页面组件
 const HomePage = React.lazy(() => import('./pages/HomePage'))
 const CalculatePage = React.lazy(() => import('./pages/CalculatePage'))
 const StarshipsPage = React.lazy(() => import('./pages/StarshipsPage'))
+const StarshipDetailPage = React.lazy(() => import('./pages/StarshipDetailPage'))
+const HistoryPage = React.lazy(() => import('./pages/HistoryPage'))
 
 function App() {
   return (
     <Router>
       <div className="App">
         <header className="App-header">
-          <h1>星航预言家</h1>
-          <p>基于航天器神谕的智能占卜系统</p>
+          <div className="ao-container ao-screen">
+            <h1 className="ao-screen__title">Astro Oracle</h1>
+            <div className="ao-console-bar">
+              <span className="ao-chip">SYS</span>
+              <span>v1.1</span>
+            </div>
+            <div className="ao-console-line">Follow Zodiac on Xiaohongshu → <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">Unlock unlimited</a> <span className="ao-cursor"></span></div>
+          </div>
         </header>
+
+        <GlobalBar />
 
         <main>
           <React.Suspense fallback={<div>加载中...</div>}>
@@ -22,6 +33,8 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/calculate" element={<CalculatePage />} />
               <Route path="/starships" element={<StarshipsPage />} />
+              <Route path="/starships/:id" element={<StarshipDetailPage />} />
+              <Route path="/history" element={<HistoryPage />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </React.Suspense>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 
 interface Starship {
@@ -39,38 +40,41 @@ const StarshipsPage: React.FC = () => {
     }
   }
 
-  if (loading) return <div className="loading">加载中...</div>
-  if (error) return <div className="error">{error}</div>
+  if (loading) return <div className="ao-container ao-screen"><div className="ao-header--standard">加载中...</div></div>
+  if (error) return <div className="ao-container ao-screen"><div className="ao-header--standard">{error}</div></div>
 
   return (
-    <div className="starships-page">
-      <h2>航天器档案</h2>
-      <p className="page-description">探索航天器档案与神谕使命</p>
+    <div className="ao-container ao-screen">
+      <h2 className="ao-screen__title">Starship Archives / 航天器档案</h2>
+      <div className="ao-module">
+        <div className="ao-header--inverted">ARCHIVE INDEX</div>
+        <div className="ao-console-line">探索航天器档案与神谕使命 <span className="ao-cursor"></span></div>
+      </div>
 
-      <div className="starships-grid">
+      <div className="ao-grid ao-grid--starships">
         {starships.map((starship) => (
-          <div key={starship.archive_id} className="starship-card">
-            <h3>{starship.name_cn}</h3>
-            <p className="official-name">{starship.name_official}</p>
+          <div key={starship.archive_id} className="ao-card ao-card--starship">
+            <div className="name"><Link to={`/starships/${starship.archive_id}`}>{starship.name_cn}</Link></div>
+            <div className="meta">{starship.name_official}</div>
 
-            <div className="starship-info">
-              <p><strong>发射日期:</strong> {starship.launch_date || '未发射'}</p>
-              <p><strong>运营机构:</strong> {starship.operator}</p>
-              <p><strong>状态:</strong> {starship.status}</p>
+            <div className="ao-data-list">
+              <div className="ao-data-row"><span className="label">发射日期</span><span className="value">{starship.launch_date || '未发射'}</span></div>
+              <div className="ao-data-row"><span className="label">运营机构</span><span className="value">{starship.operator}</span></div>
+              <div className="ao-data-row"><span className="label">状态</span><span className="value">{starship.status}</span></div>
             </div>
 
-            <div className="oracle-section">
-              <h4>神谕关键词</h4>
-              <div className="keywords">
+            <div className="ao-module" style={{marginTop: '24px'}}>
+              <h4 className="ao-header--standard">神谕关键词</h4>
+              <div>
                 {starship.oracle_keywords.map((keyword, index) => (
-                  <span key={index} className="keyword-tag">
-                    {keyword}
-                  </span>
+                  <span key={index} className="ao-tag">{keyword}</span>
                 ))}
               </div>
-
-              <h4>神谕文本</h4>
-              <p className="oracle-text">{starship.oracle_text}</p>
+              <h4 className="ao-header--standard" style={{marginTop: '16px'}}>神谕文本</h4>
+              <p style={{margin: 0}}>{starship.oracle_text}</p>
+              <div style={{marginTop: 12}}>
+                <Link className="ao-button" to={`/starships/${starship.archive_id}`}>查看详情</Link>
+              </div>
             </div>
           </div>
         ))}
