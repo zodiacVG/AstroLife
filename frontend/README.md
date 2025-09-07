@@ -1,27 +1,8 @@
 # 前端（React + Vite）
 
-使用 Vite 搭建的 React + TypeScript 前端。
+本模块的运行与环境说明已整合到统一文档：`docs/DEVELOPMENT.md`。
 
-## 快速开始
-
-```bash
-cd frontend
-npm install
-npm run dev       # http://localhost:5173
-```
-
-构建与预览：
-```bash
-npm run build
-npm run preview   # 本地生产预览
-```
-
-## 与后端联调
-
-前端通过 `VITE_API_URL` 配置后端地址（见 `src/lib/api.ts`）。可复制 `.env.example` 为 `.env` 并设置：
-
-```
-VITE_API_URL=http://localhost:8000
-```
-
-默认回退地址为 `http://localhost:8000`（开发环境）。
+要点速览：
+- 启动开发：在仓库根目录执行 `npm run dev`
+- 配置后端地址：复制 `frontend/.env.example` 为 `.env`，设置 `VITE_API_URL`
+- API 访问：通过 `src/lib/api.ts` 统一组装地址（默认回退本机 :8000）

@@ -21,7 +21,9 @@ AstroLife/                 # Monorepo 根目录
 
 - Node.js 18+（前端）
 - npm 9+（或你偏好的包管理器）
-- Python 3.10+（后端）
+- Python 3.11（推荐，后端）
+
+说明：当前依赖的 pydantic-core 对 Python 3.13 尚无预编译轮子，使用 3.13 会触发 Rust/maturin 源码编译错误。请使用 3.11/3.12，或先安装 Rust 工具链再编译。
 
 ## 🚀 快速开始（本地开发）
 

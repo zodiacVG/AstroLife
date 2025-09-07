@@ -11,11 +11,11 @@ cp backend/.env.example backend/.env
 # 按需填写 API Key 等配置
 ```
 
-2) 安装依赖（推荐在虚拟环境中）
+2) 安装依赖（推荐在 Python 3.11 虚拟环境中）
 
 ```bash
 cd backend
-python -m venv venv
+python3.11 -m venv venv   # 确保使用 Python 3.11/3.12
 source venv/bin/activate  # Windows 使用 venv\Scripts\activate
 pip install -r requirements.txt
 ```
@@ -42,6 +42,11 @@ uvicorn app.main:app --reload --port 8000
 - `PORT`：服务端口，默认 `8000`
 
 示例见：`backend/.env.example`
+
+### 关于 Python 版本
+
+- 推荐使用 Python 3.11/3.12。
+- 若使用 3.13，`pydantic-core` 可能需要本地 Rust 工具链编译，需先安装 Rust（如 `brew install rust` 或 `rustup`）。
 
 ## 主要端点（规范 v1）
 
