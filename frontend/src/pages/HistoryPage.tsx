@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { api } from '../lib/api'
 
 type HistoryItem = {
   id: string
@@ -16,19 +15,18 @@ const HistoryPage: React.FC = () => {
   const [items, setItems] = useState<HistoryItem[]>([])
 
   useEffect(() => {
-    async function load() {
-      try {
-        let id = localStorage.getItem('deviceId-v1')
-        if (!id) { id = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('deviceId-v1', id) }
-        const resp = await fetch(api(`/api/v1/history?device_id=${id}`))
-        if (resp.ok) {
-          const json = await resp.json()
-          const list = (json?.data || []) as HistoryItem[]
-          setItems((list || []).sort((a,b) => b.time - a.time))
-        }
-      } catch {}
+    let id = localStorage.getItem('deviceId-v1')
+    if (!id) {
+      id = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      localStorage.setItem('deviceId-v1', id)
     }
-    load()
+    try {
+      const raw = localStorage.getItem(`history-v1-${id}`)
+      const list = raw ? (JSON.parse(raw) as HistoryItem[]) : []
+      setItems((list || []).sort((a, b) => b.time - a.time))
+    } catch {
+      setItems([])
+    }
   }, [])
 
   return (

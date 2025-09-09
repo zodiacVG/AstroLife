@@ -69,6 +69,11 @@ app.add_middleware(
 前端通过环境变量 `VITE_API_URL` 指定后端地址，请在部署平台配置：
 `VITE_API_URL=https://your-backend.zeabur.app`
 
+## 数据存储说明
+
+- 历史记录保存在用户浏览器的 localStorage 按设备隔离；后端不持久化用户历史。
+- 好处：无需数据库配置，部署更简单；隐私数据留在用户本地。
+
 ## 常见问题
 
 ### Q: 共享数据如何同步更新？
@@ -79,7 +84,7 @@ A: 不需要，shared 目录会随前后端一起部署。
 
 ### Q: 如何测试部署？
 A: 
-1. 本地测试：`npm run dev` (前端) 和 `python app.py` (后端)
+1. 本地测试：`npm run dev` (前端) 和 `uvicorn app.main:app --reload --port 8000` (后端)
 2. 推送代码到 GitHub
 3. Zeabur 会自动部署
 4. 访问生成的域名测试

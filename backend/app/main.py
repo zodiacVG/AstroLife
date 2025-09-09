@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import os
 from dotenv import load_dotenv
 import json
@@ -15,17 +15,41 @@ from pathlib import Path
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
-def _parse_cors_origins() -> list[str]:
+def _cors_config() -> dict:
+    """构建 CORS 中间件配置。
+
+    优先使用显式的 `CORS_ALLOW_ORIGINS`（逗号分隔）。
+    如果未配置，则使用正则放行本机与私有网段（10/172.16-31/192.168）。
+    可通过 `CORS_ALLOW_ORIGIN_REGEX` 自定义覆盖默认正则。
+    """
     origins_env = os.getenv("CORS_ALLOW_ORIGINS", "")
-    if origins_env:
-        return [o.strip() for o in origins_env.split(",") if o.strip()]
-    # 默认允许本机常用端口
-    return [
+    origin_regex_env = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
+
+    # 默认允许本机端口（便于显式匹配）
+    default_locals = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+
+    cfg: dict[str, Any] = {}
+    allow_origins: list[str] = []
+    if origins_env:
+        allow_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+    else:
+        allow_origins = default_locals
+
+    cfg["allow_origins"] = allow_origins
+
+    # 当未显式指定 origins 时，同时允许常见私网段与 localhost 的正则
+    if origin_regex_env:
+        cfg["allow_origin_regex"] = origin_regex_env
+    elif not origins_env:
+        # 允许：localhost/127.0.0.1 以及 10.x.x.x、172.16-31.x.x、192.168.x.x 任意端口
+        cfg["allow_origin_regex"] = r"^http://(localhost|127\\.0\\.0\\.1|10\\.[0-9.]+|172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9.]+|192\\.168\\.[0-9.]+):\\d+$"
+
+    return cfg
 
 app = FastAPI(
     title="星航预言家 API",
@@ -34,12 +58,13 @@ app = FastAPI(
 )
 
 # CORS配置
+_cfg = _cors_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_parse_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    **_cfg,
 )
 
 # 加载航天器数据
@@ -84,38 +109,8 @@ class CalculationResult(BaseModel):
     starships: Optional[dict] = None
     interpretation: Optional[str] = None
 
-# ---- History models ----
-class HistoryItem(BaseModel):
-    id: str
-    device_id: str
-    time: int
-    birth_date: str
-    question: Optional[str] = None
-    origin: Optional[Dict[str, Any]] = None
-    celestial: Optional[Dict[str, Any]] = None
-    inquiry: Optional[Dict[str, Any]] = None
-    interpretation: Optional[str] = None
-
-def _history_path() -> Path:
-    backend_dir = Path(__file__).parent.parent
-    data_dir = backend_dir / 'data'
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir / 'history.json'
-
-def _read_history() -> List[Dict[str, Any]]:
-    path = _history_path()
-    if not path.exists():
-        return []
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return []
-
-def _write_history(items: List[Dict[str, Any]]):
-    path = _history_path()
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(items, f, ensure_ascii=False, indent=2)
+## 历史记录改为前端 localStorage 存储
+## 后端不再持久化历史，接口已移除（前端直接使用浏览器存储）
 
 @app.get("/")
 async def root():
@@ -357,19 +352,7 @@ async def health_check_v1():
         "timestamp": datetime.now().isoformat(),
     }
 
-# ---- History endpoints ----
-@app.get("/api/v1/history")
-async def get_history(device_id: str):
-    items = _read_history()
-    filtered = [x for x in items if x.get('device_id') == device_id]
-    return {"success": True, "data": filtered, "message": "OK", "timestamp": datetime.now().isoformat()}
-
-@app.post("/api/v1/history")
-async def add_history(item: HistoryItem):
-    items = _read_history()
-    items.append(item.model_dump())
-    _write_history(items)
-    return {"success": True, "data": item.model_dump(), "message": "SAVED", "timestamp": datetime.now().isoformat()}
+## 历史接口已删除
 
 if __name__ == "__main__":
     import uvicorn

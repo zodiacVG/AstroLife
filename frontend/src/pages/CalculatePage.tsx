@@ -398,7 +398,11 @@ const CalculatePage: React.FC = () => {
                       inquiry: inquiryData?.starship || null,
                       interpretation: t || null,
                     }
-                    await fetch(api('/api/v1/history'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record) })
+                    const key = `history-v1-${device_id}`
+                    const raw = localStorage.getItem(key)
+                    const list = raw ? (JSON.parse(raw) as any[]) : []
+                    list.push(record)
+                    localStorage.setItem(key, JSON.stringify(list))
                   } catch {}
                 }}
                 onError={(e) => {

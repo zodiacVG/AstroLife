@@ -38,10 +38,17 @@ uvicorn app.main:app --reload --port 8000
 - `ALIYUN_BAILIAN_API_KEY`：阿里云百炼 API Key（启用 LLM 功能时必须）
 - `ALIYUN_BAILIAN_MODEL`：模型名称，默认 `qwen-plus`
 - `CORS_ALLOW_ORIGINS`：逗号分隔的允许跨域来源列表（如 `http://localhost:5173,https://your.app`）
+- `CORS_ALLOW_ORIGIN_REGEX`：允许来源的正则表达式（可选）。若未设置 `CORS_ALLOW_ORIGINS`，后端默认放行本机与私网网段：`localhost/127.0.0.1`、`10.x.x.x`、`172.16-31.x.x`、`192.168.x.x` 任意端口。
 - `HOST`：服务绑定主机，默认 `0.0.0.0`
 - `PORT`：服务端口，默认 `8000`
+- 不需要数据库配置：历史记录保存在用户浏览器的 localStorage 中，后端无持久化。
 
 示例见：`backend/.env.example`
+
+开发场景常见问题：如果前端在 `http://172.29.0.1:5173` 启动（Vite `host:true`），而后端只允许 `localhost:5173`，会触发 CORS 预检失败。解决：
+- 将该来源加入 `CORS_ALLOW_ORIGINS`，或
+- 配置 `CORS_ALLOW_ORIGIN_REGEX`，或
+- 将 Vite 绑定到 `localhost`。
 
 ### 关于 Python 版本
 
@@ -71,3 +78,8 @@ uvicorn app.main:app --reload --port 8000
 ## 共享数据路径
 
 服务使用 `shared/astro_data/starships.json` 作为数据源，已在代码中通过项目根路径解析，无需额外配置。
+
+## 历史记录存储（History）
+
+- 历史记录由前端保存至浏览器 localStorage。
+- 后端不提供历史记录的读取/写入接口。
