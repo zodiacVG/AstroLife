@@ -55,26 +55,18 @@ const StarshipsPage: React.FC = () => {
         {starships.map((starship) => (
           <div key={starship.archive_id} className="ao-card ao-card--starship">
             <div className="name"><Link to={`/starships/${starship.archive_id}`}>{starship.name_cn}</Link></div>
-            <div className="meta">{starship.name_official}</div>
+            <div className="meta ao-ui">{starship.name_official}</div>
 
-            <div className="ao-data-list">
+            <div className="ao-data-list" style={{marginTop: 8}}>
               <div className="ao-data-row"><span className="label">发射日期</span><span className="value">{starship.launch_date || '未发射'}</span></div>
               <div className="ao-data-row"><span className="label">运营机构</span><span className="value">{starship.operator}</span></div>
               <div className="ao-data-row"><span className="label">状态</span><span className="value">{starship.status}</span></div>
             </div>
 
-            <div className="ao-module" style={{marginTop: '24px'}}>
-              <h4 className="ao-header--standard">神谕关键词</h4>
-              <div>
-                {starship.oracle_keywords.map((keyword, index) => (
-                  <span key={index} className="ao-tag">{keyword}</span>
-                ))}
-              </div>
-              <h4 className="ao-header--standard" style={{marginTop: '16px'}}>神谕文本</h4>
-              <p style={{margin: 0}}>{starship.oracle_text}</p>
-              <div style={{marginTop: 12}}>
-                <Link className="ao-button" to={`/starships/${starship.archive_id}`}>查看详情</Link>
-              </div>
+            <h4 className="ao-header--standard" style={{marginTop: 12}}>任务简介</h4>
+            <p className="ao-ui ao-clamp-3" style={{margin: 0}}>{(starship as any).mission_description || '暂无简介'}</p>
+            <div style={{marginTop: 12}}>
+              <Link className="ao-button" to={`/starships/${starship.archive_id}`}>查看详情 View</Link>
             </div>
           </div>
         ))}

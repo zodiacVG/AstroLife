@@ -80,16 +80,19 @@ starships_data = load_starships_data()
 
 class CalculationRequest(BaseModel):
     birth_date: str  # YYYY-MM-DD格式
+    name: Optional[str] = None
     question: Optional[str] = None
 
 class DivineOriginRequest(BaseModel):
     birth_date: str
+    name: Optional[str] = None
 
 class DivineCelestialRequest(BaseModel):
     inquiry_date: Optional[str] = None  # 缺省为当前日期
 
 class DivineInquiryRequest(BaseModel):
     question: str
+    name: Optional[str] = None
 
 class AstroSpacecraft(BaseModel):
     archive_id: str
@@ -269,14 +272,14 @@ async def divine_inquiry(payload: DivineInquiryRequest):
 
 
 @app.get("/api/v1/oracle/stream")
-async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str = ""):
+async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str = "", name: str = ""):
     """使用前端已计算出的三艘飞船与问题，流式生成最终解读（SSE）。"""
     try:
         from .oracle_algorithm import load_starships_data
         from .llm_service import get_llm_service
 
         print('[SSE] /api/v1/oracle/stream params:', {
-            'origin_id': origin_id, 'celestial_id': celestial_id, 'inquiry_id': inquiry_id, 'question': question
+            'origin_id': origin_id, 'celestial_id': celestial_id, 'inquiry_id': inquiry_id, 'question': question, 'name': name
         })
         data = load_starships_data()
         starships = data.get("starships", [])
@@ -304,11 +307,11 @@ async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, ques
                 llm = get_llm_service()
                 # 打印发送给模型的提示词（仅用于调试）
                 try:
-                    prompt = llm._build_final_interpretation_prompt(origin, celestial, inquiry, question)  # type: ignore[attr-defined]
+                    prompt = llm._build_final_interpretation_prompt(origin, celestial, inquiry, question, name)  # type: ignore[attr-defined]
                     print('[SSE] prompt to LLM (first 800):\n' + (prompt[:800] + ('...' if len(prompt) > 800 else '')))
                 except Exception as _e:
                     print('[SSE] prompt build log failed:', _e)
-                for delta in llm.stream_final_interpretation(origin, celestial, inquiry, question):
+                for delta in llm.stream_final_interpretation(origin, celestial, inquiry, question, name):
                     if delta:
                         yield _sse("result", {"output_text": delta})
                 yield _sse("completed", {"ok": True})

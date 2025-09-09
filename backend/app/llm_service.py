@@ -78,7 +78,8 @@ class LLMService:
         origin_starship: Optional[Dict],
         celestial_starship: Optional[Dict], 
         inquiry_starship: Optional[Dict],
-        question: Optional[str]
+        question: Optional[str],
+        user_name: Optional[str] = None
     ) -> str:
         """
         使用大模型生成最终的神谕解读
@@ -94,7 +95,7 @@ class LLMService:
         """
         # 构建最终解读提示词
         prompt = self._build_final_interpretation_prompt(
-            origin_starship, celestial_starship, inquiry_starship, question
+            origin_starship, celestial_starship, inquiry_starship, question, user_name
         )
         
         try:
@@ -113,13 +114,14 @@ class LLMService:
         origin_starship: Optional[Dict],
         celestial_starship: Optional[Dict],
         inquiry_starship: Optional[Dict],
-        question: Optional[str]
+        question: Optional[str],
+        user_name: Optional[str] = None
     ):
         """流式生成神谕解读（OpenAI 兼容 streaming）。
         返回一个同步生成器，逐块yield文本，适配 FastAPI StreamingResponse。
         """
         prompt = self._build_final_interpretation_prompt(
-            origin_starship, celestial_starship, inquiry_starship, question
+            origin_starship, celestial_starship, inquiry_starship, question, user_name
         )
         try:
             stream = self.client.chat.completions.create(
@@ -179,7 +181,8 @@ class LLMService:
         origin_starship: Optional[Dict],
         celestial_starship: Optional[Dict], 
         inquiry_starship: Optional[Dict],
-        question: Optional[str]
+        question: Optional[str],
+        user_name: Optional[str] = None
     ) -> str:
         """构建最终解读提示词"""
         starships_info = []
@@ -201,6 +204,7 @@ class LLMService:
         
         # 处理空question的情况
         question_display = question if question else "请根据三艘飞船的神谕，为我提供关于命运和时运的综合解读"
+        user_line = f"用户姓名：{user_name}\n" if user_name else ""
         
         return f"""你是一个星航预言家，需要整合三艘宇宙飞船的神谕来回答用户的问题。
 
@@ -208,6 +212,7 @@ class LLMService:
 {starships_text}
 
 用户问题：{question_display}
+{user_line}
 
 请生成一个综合性的神谕解读，结合三艘飞船的启示，用诗意而智慧的语言回答用户的问题。
 解读应该包含：

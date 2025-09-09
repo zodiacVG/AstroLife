@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import OracleStream from '../components/OracleStream'
 import { api } from '../lib/api'
 
 const CalculatePage: React.FC = () => {
+  const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [question, setQuestion] = useState('')
   const [isCalculating, setIsCalculating] = useState(false)
-  const [result, setResult] = useState<any>(null)
   
   // 分步状态
   type StepStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -19,8 +19,6 @@ const CalculatePage: React.FC = () => {
   const [inquiryData, setInquiryData] = useState<any>(null)
   const [interpretation, setInterpretation] = useState<string | null>(null)
   const [finalTried, setFinalTried] = useState(false)
-  const [debugLogs, setDebugLogs] = useState<string[]>([])
-  const [commandHistory, setCommandHistory] = useState<string[]>([])
   const STORAGE_KEY = 'calcState-v1'
   const DEVICE_KEY = 'deviceId-v1'
 
@@ -31,6 +29,7 @@ const CalculatePage: React.FC = () => {
       if (!raw) return
       const s = JSON.parse(raw)
       if (s) {
+        setName(s.name || '')
         setBirthDate(s.birthDate || '')
         setQuestion(s.question || '')
         setOriginStatus(s.originStatus || 'idle')
@@ -58,6 +57,7 @@ const CalculatePage: React.FC = () => {
   // 持久化关键状态
   useEffect(() => {
     const snapshot = {
+      name,
       birthDate,
       question,
       originStatus,
@@ -70,8 +70,11 @@ const CalculatePage: React.FC = () => {
       finalTried,
     }
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)) } catch {}
-  }, [birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
+  }, [name, birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
   
+  const effectiveName = useMemo(() => (name && name.trim()) ? name.trim() : '你', [name])
+  const effectiveQuestion = useMemo(() => (question && question.trim()) ? question.trim() : '请基于本命与天时给出综合性的现实建议与启发。', [question])
+
   const canShowFinal = useMemo(() => {
     // 要求：三舟成功 且 三个ID都就绪 才展示最终解读（避免SSE缺参导致连接失败）
     const oId = originData?.starship?.archive_id
@@ -79,8 +82,8 @@ const CalculatePage: React.FC = () => {
     const iId = inquiryData?.starship?.archive_id
     const hasIds = !!oId && !!cId && !!iId
     
-    // 如果没有问题，则不需要检查 inquiryStatus
-    const inquiryOk = !question || inquiryStatus === 'success'
+    // 统一：问道星舟总会生成（无问题时使用默认问题）
+    const inquiryOk = inquiryStatus === 'success'
     
     return hasIds && originStatus === 'success' && celestialStatus === 'success' && inquiryOk
   }, [originStatus, celestialStatus, inquiryStatus, question, originData, celestialData, inquiryData])
@@ -93,14 +96,6 @@ const CalculatePage: React.FC = () => {
     console.log('inquiryStatus:', inquiryStatus)
     console.log('canShowFinal:', canShowFinal)
     
-    // Update debug logs
-    setDebugLogs(prev => [
-      ...prev.slice(-9), // Keep only the last 9 logs
-      `originStatus: ${originStatus}`,
-      `celestialStatus: ${celestialStatus}`,
-      `inquiryStatus: ${inquiryStatus}`,
-      `canShowFinal: ${canShowFinal}`
-    ])
     if (
       originStatus === 'success' &&
       celestialStatus === 'success' &&
@@ -135,9 +130,7 @@ const CalculatePage: React.FC = () => {
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Add to command history
-    const command = `DIVINATION EXECUTED - BIRTH_DATE: ${birthDate}${question ? `, QUERY: ${question}` : ''}`
-    setCommandHistory(prev => [...prev.slice(-4), command])
+    // 记录命令行历史已移除，仅保留控制台日志
   
     if (!birthDate) {
       alert('请输入出生日期')
@@ -145,28 +138,27 @@ const CalculatePage: React.FC = () => {
     }
 
     setIsCalculating(true)
-    setResult(null)
     setInterpretation(null)
     setOriginData(null)
     setCelestialData(null)
     setInquiryData(null)
     setOriginStatus('loading')
     setCelestialStatus('loading')
-    setInquiryStatus(question ? 'loading' : 'idle')
+    setInquiryStatus('loading')
 
     try {
       // 并发启动三个子计算
       const tasks: Promise<void>[] = []
       let okOrigin = false
       let okCelestial = false
-      let okInquiry = !question // if no question, treat as satisfied
+      let okInquiry = false
 
       // origin
       tasks.push((async () => {
         try {
           const resp = await fetch(api('/api/v1/divine/origin'), {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ birth_date: birthDate })
+            body: JSON.stringify({ birth_date: birthDate, name })
           })
           if (!resp.ok) throw new Error('origin failed')
           const json = await resp.json()
@@ -195,24 +187,22 @@ const CalculatePage: React.FC = () => {
         }
       })())
 
-      // inquiry（可选）
-      if (question) {
-        tasks.push((async () => {
-          try {
-            const resp = await fetch(api('/api/v1/divine/inquiry'), {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ question })
-            })
-            if (!resp.ok) throw new Error('inquiry failed')
-            const json = await resp.json()
-            setInquiryData(json.data)
-            setInquiryStatus('success')
-            okInquiry = true
-          } catch {
-            setInquiryStatus('error')
-          }
-        })())
-      }
+      // inquiry：始终执行（无问题时采用默认问题）
+      tasks.push((async () => {
+        try {
+          const resp = await fetch(api('/api/v1/divine/inquiry'), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: effectiveQuestion, name: effectiveName })
+          })
+          if (!resp.ok) throw new Error('inquiry failed')
+          const json = await resp.json()
+          setInquiryData(json.data)
+          setInquiryStatus('success')
+          okInquiry = true
+        } catch {
+          setInquiryStatus('error')
+        }
+      })())
 
       await Promise.allSettled(tasks)
 
@@ -223,7 +213,7 @@ const CalculatePage: React.FC = () => {
       console.groupEnd()
 
       // 三舟阶段完成后：若三者均成功，则挂载流式 Oracle（SSE）
-      const readyForComplete = (okOrigin && okCelestial && (question ? okInquiry : true))
+      const readyForComplete = (okOrigin && okCelestial && okInquiry)
       if (readyForComplete) {
         console.log('[Divine] readyForComplete=true, will mount OracleStream')
         setInterpretation(null)
@@ -240,15 +230,31 @@ const CalculatePage: React.FC = () => {
     }
   }
 
+  const oracleWrapRef = useRef<HTMLDivElement | null>(null)
+
   return (
     <div className="ao-container ao-screen">
-      <h2 className="ao-screen__title">Divination Console</h2>
+      {/* 标题区域简化：移除冗余文案 */}
       <div className="ao-module">
-        <div className="ao-header--inverted">[SYSTEM] INPUT_TERMINAL</div>
-        <div className="ao-console-line">/&gt;_ Awaiting command input... <span className="ao-cursor"></span></div>
+        <div className="ao-header--inverted">占卜输入 / Input</div>
         <form onSubmit={handleCalculate} className="ao-form" aria-label="占卜输入">
           <div className="ao-field">
-          <label htmlFor="birthDate" className="ao-header--standard">[PARAM] BIRTH_DATE / REQUIRED</label>
+          <label htmlFor="userName" className="ao-header--standard">姓名 / Name</label>
+            <div className="ao-console-field">
+              <input
+                className="ao-input"
+                type="text"
+                id="userName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="可选：更个性化的解读"
+              />
+              <span className="ao-cursor"></span>
+            </div>
+          </div>
+
+          <div className="ao-field">
+          <label htmlFor="birthDate" className="ao-header--standard">出生日期 / Birth Date</label>
             <div className="ao-console-field">
               <input
                 className="ao-input"
@@ -263,7 +269,7 @@ const CalculatePage: React.FC = () => {
           </div>
 
           <div className="ao-field">
-          <label htmlFor="question" className="ao-header--standard">[PARAM] QUERY / OPTIONAL</label>
+          <label htmlFor="question" className="ao-header--standard">问题（可选）/ Question</label>
             <div className="ao-console-field">
               <textarea
                 className="ao-textarea"
@@ -277,43 +283,19 @@ const CalculatePage: React.FC = () => {
             </div>
           </div>
 
+          <div className="ao-hint">仅需出生日期即可占卜；填写姓名与问题可获得更定向的建议。</div>
+
           <button
             type="submit"
             disabled={isCalculating}
             className="ao-button"
           >
-            {isCalculating ? '[PROCESSING]...' : '[EXECUTE] DIVINATION'}
+            {isCalculating ? '处理中… Processing' : '开始占卜 Start'}
           </button>
         </form>
       </div>
 
-      <div className="ao-module">
-        <div className="ao-header--inverted">[SYSTEM] DEVICE_ID / TERMINAL</div>
-        <div className="ao-console-line">[ID] {getDeviceId()}</div>
-      </div>
-
-      <div className="ao-module">
-        <div className="ao-header--inverted">[SYSTEM] STATUS / MONITOR</div>
-        <div className="ao-console-line">[STATUS] SYSTEM_READY</div>
-      </div>
-
-      <div className="ao-module">
-        <div className="ao-header--inverted">[SYSTEM] DEBUG_LOG / VERBOSE</div>
-        {debugLogs.map((log, index) => (
-          <div key={index} className="ao-console-line">
-            [LOG] {log}
-          </div>
-        ))}
-      </div>
-
-      <div className="ao-module">
-        <div className="ao-header--inverted">[SYSTEM] COMMAND_HISTORY / BUFFER</div>
-        {commandHistory.map((cmd, index) => (
-          <div key={index} className="ao-console-line">
-            [CMD] {cmd}
-          </div>
-        ))}
-      </div>
+      {/* 高级与调试面板已移除，专注占卜核心流程 */}
 
       {(originStatus !== 'idle' || celestialStatus !== 'idle' || inquiryStatus !== 'idle') && (
         <div className="ao-module" role="region" aria-label="占卜结果">
@@ -328,12 +310,13 @@ const CalculatePage: React.FC = () => {
               <div className="ao-card ao-card--starship is-success">
                 <h4>[ORIGIN] STARSHIP_01</h4>
                 <div className="starship-info">
-                  <div className="starship-name">[NAME] {originData.starship.name_cn}</div>
-                  <div className="starship-id">[ID] {originData.starship.archive_id}</div>
-                  <div className="starship-description">[DATA] {originData.starship.oracle_text}</div>
+                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>本命星舟：反映你的内在本质与底层倾向。</div>
+                  <div className="starship-name">{originData.starship.name_cn}</div>
+                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {originData.starship.archive_id}</div>
+                  <div className="starship-description ao-clamp-3">{originData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {originData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${originData.starship.archive_id}`}>[VIEW] DETAILS</Link>
+                <Link className="ao-button" to={`/starships/${originData.starship.archive_id}`}>查看详情 View</Link>
               </div>
             )}
 
@@ -344,12 +327,13 @@ const CalculatePage: React.FC = () => {
               <div className="ao-card ao-card--starship is-success">
                 <h4>[CELESTIAL] STARSHIP_02</h4>
                 <div className="starship-info">
-                  <div className="starship-name">[NAME] {celestialData.starship.name_cn}</div>
-                  <div className="starship-id">[ID] {celestialData.starship.archive_id}</div>
-                  <div className="starship-description">[DATA] {celestialData.starship.oracle_text}</div>
+                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>天时星舟：映射当下环境与外部机运。</div>
+                  <div className="starship-name">{celestialData.starship.name_cn}</div>
+                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {celestialData.starship.archive_id}</div>
+                  <div className="starship-description ao-clamp-3">{celestialData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {celestialData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${celestialData.starship.archive_id}`}>[VIEW] DETAILS</Link>
+                <Link className="ao-button" to={`/starships/${celestialData.starship.archive_id}`}>查看详情 View</Link>
               </div>
             )}
 
@@ -360,20 +344,21 @@ const CalculatePage: React.FC = () => {
               <div className="ao-card ao-card--starship is-success">
                 <h4>[INQUIRY] STARSHIP_03</h4>
                 <div className="starship-info">
-                  <div className="starship-name">[NAME] {inquiryData.starship.name_cn}</div>
-                  <div className="starship-id">[ID] {inquiryData.starship.archive_id}</div>
-                  <div className="starship-description">[DATA] {inquiryData.starship.oracle_text}</div>
+                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>问道星舟：回应你此刻的问题方向。</div>
+                  <div className="starship-name">{inquiryData.starship.name_cn}</div>
+                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {inquiryData.starship.archive_id}</div>
+                  <div className="starship-description ao-clamp-3">{inquiryData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {inquiryData.match_score ?? 0}</div>
                 </div>
-                <Link className="ao-button" to={`/starships/${inquiryData.starship.archive_id}`}>[VIEW] DETAILS</Link>
+                <Link className="ao-button" to={`/starships/${inquiryData.starship.archive_id}`}>查看详情 View</Link>
               </div>
             )}
           </div>
 
           {/* 神谕解读（流式，直接调用 oracle/stream，传入三艘飞船ID与问题） */}
           {canShowFinal && (
-            <div className="ao-module" data-tone="oracle">
-              <div className="ao-header--inverted">[SYSTEM] ORACLE_OUTPUT / STREAMING</div>
+            <div className="ao-module" data-tone="oracle" ref={oracleWrapRef}>
+              <div className="ao-header--inverted">神谕解读 / Oracle</div>
               <OracleStream
                 key={`${originData?.starship?.archive_id}-${celestialData?.starship?.archive_id}-${inquiryData?.starship?.archive_id}-${question || ''}`}
                 url="/api/v1/oracle/stream"
@@ -381,7 +366,8 @@ const CalculatePage: React.FC = () => {
                   origin_id: originData?.starship?.archive_id,
                   celestial_id: celestialData?.starship?.archive_id,
                   inquiry_id: inquiryData?.starship?.archive_id,
-                  question: question || ''
+                  question: effectiveQuestion,
+                  name: effectiveName
                 }}
                 onDone={async (t) => {
                   setInterpretation(t)
@@ -391,6 +377,7 @@ const CalculatePage: React.FC = () => {
                       id: `${Date.now()}`,
                       device_id,
                       time: Date.now(),
+                      name: name || null,
                       birth_date: birthDate,
                       question: question || null,
                       origin: originData?.starship || null,
@@ -409,6 +396,19 @@ const CalculatePage: React.FC = () => {
                   console.error('oracle stream error', e)
                 }}
               />
+              <div style={{marginTop:12}}>
+                <button
+                  className="ao-button ao-button--sm"
+                  disabled={!interpretation}
+                  onClick={async () => {
+                    try {
+                      const text = interpretation || oracleWrapRef.current?.innerText || ''
+                      await navigator.clipboard.writeText(text)
+                      alert('已复制 / Copied')
+                    } catch {}
+                  }}
+                >复制神谕 Copy</button>
+              </div>
             </div>
           )}
         </div>

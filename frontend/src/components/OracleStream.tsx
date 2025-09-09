@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { api } from '../lib/api'
 
 interface OracleStreamProps {
@@ -7,13 +9,14 @@ interface OracleStreamProps {
   className?: string
   onDone?: (fullText: string) => void
   onError?: (error: Error) => void
+  markdown?: boolean
 }
 
 // 仅使用原生 EventSource（阿里云/百炼 SSE 常规方式）：
 // event: result     data: { "output_text": "..." }
 // event: completed  data: { "ok": true }
 // event: error      data: { "message": "..." }
-const OracleStream: React.FC<OracleStreamProps> = ({ url, params, className, onDone, onError }) => {
+const OracleStream: React.FC<OracleStreamProps> = ({ url, params, className, onDone, onError, markdown = true }) => {
   const [visible, setVisible] = useState('')
   const startedRef = useRef(false)
   const doneRef = useRef(false)
@@ -69,7 +72,7 @@ const OracleStream: React.FC<OracleStreamProps> = ({ url, params, className, onD
           const t = String(evt.data)
           console.debug('[OracleStream] result(nonjson) len:', t.length)
           full += t
-          if (!cancelled) setVisible(prev => prev + text)
+          if (!cancelled) setVisible(prev => prev + t)
         }
       }
 
@@ -128,9 +131,14 @@ const OracleStream: React.FC<OracleStreamProps> = ({ url, params, className, onD
   }, [url, JSON.stringify(params)])
 
   return (
-    <div className={className} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-      {visible}
-      <span className="ao-cursor" />
+    <div className={className}>
+      {markdown ? (
+        <div className="ao-md">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{visible}</ReactMarkdown>
+        </div>
+      ) : (
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{visible}</div>
+      )}
     </div>
   )
 }
