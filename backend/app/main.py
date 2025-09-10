@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 import asyncio
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -66,6 +67,16 @@ app.add_middleware(
     allow_headers=["*"],
     **_cfg,
 )
+
+# ---- Static media (for audio/video) ----
+# Mount backend/data at /media to serve audio with HTTP range support.
+try:
+    media_dir = Path(__file__).parent.parent / "data"
+    if media_dir.exists():
+        app.mount("/media", StaticFiles(directory=str(media_dir), html=False), name="media")
+except Exception as _e:
+    # Non-fatal; app continues without media mount
+    print("[media] mount failed:", _e)
 
 # 加载航天器数据
 def load_starships_data():

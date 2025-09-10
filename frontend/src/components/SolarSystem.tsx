@@ -12,6 +12,8 @@ type Craft = {
   burstEvery?: number
   burstDuration?: number
   burstGain?: number
+  burstTail?: number        // seconds for fading drift after burst
+  burstReturn?: number      // seconds for smooth re-entry back to base
   lx?: number
   ly?: number
   precession?: number
@@ -30,10 +32,10 @@ const planets: Planet[] = [
 ]
 
 const crafts: Craft[] = [
-  { name: 'Voyager 1',   a: 330, b: 180, speed: 0.060, phase: 0.0, color: 'rgba(51,255,51,0.95)', mode: 'escape',  burstEvery: 14, burstDuration: 3.0, burstGain: 0.45 },
-  { name: 'Voyager 2',   a: 310, b: 170, speed: 0.055, phase: 2.6, color: 'rgba(51,255,51,0.90)', mode: 'escape',  burstEvery: 16, burstDuration: 3.2, burstGain: 0.40 },
-  { name: 'Pioneer 10',  a: 350, b: 195, speed: 0.050, phase: 0.3, color: 'rgba(51,255,51,0.80)', mode: 'escape',  burstEvery: 18, burstDuration: 3.5, burstGain: 0.50 },
-  { name: 'New Horizons',a: 360, b: 200, speed: 0.055, phase: 2.2, color: 'rgba(51,255,51,0.88)', mode: 'escape',  burstEvery: 20, burstDuration: 3.0, burstGain: 0.55 },
+  { name: 'Voyager 1',   a: 330, b: 180, speed: 0.060, phase: 0.0, color: 'rgba(51,255,51,0.95)', mode: 'escape',  burstEvery: 14, burstDuration: 3.0, burstGain: 0.45, burstTail: 2.5, burstReturn: 2.5 },
+  { name: 'Voyager 2',   a: 310, b: 170, speed: 0.055, phase: 2.6, color: 'rgba(51,255,51,0.90)', mode: 'escape',  burstEvery: 16, burstDuration: 3.2, burstGain: 0.40, burstTail: 2.5, burstReturn: 2.5 },
+  { name: 'Pioneer 10',  a: 350, b: 195, speed: 0.050, phase: 0.3, color: 'rgba(51,255,51,0.80)', mode: 'escape',  burstEvery: 18, burstDuration: 3.5, burstGain: 0.50, burstTail: 3.0, burstReturn: 2.8 },
+  { name: 'New Horizons',a: 360, b: 200, speed: 0.055, phase: 2.2, color: 'rgba(51,255,51,0.88)', mode: 'escape',  burstEvery: 20, burstDuration: 3.0, burstGain: 0.55, burstTail: 3.0, burstReturn: 3.0 },
   { name: 'Hubble',      a: 135, b: 74,  speed: 0.100, phase: 0.8, color: 'rgba(51,255,51,0.85)', mode: 'precess', precession: 0.004 },
   { name: 'Cassini',     a: 220, b: 120, speed: 0.070, phase: 2.1, color: 'rgba(51,255,51,0.90)', mode: 'precess', precession: 0.002 },
   { name: 'Tianwen-1',   a: 170, b: 95,  speed: 0.065, phase: 0.6, color: 'rgba(51,255,51,0.90)', mode: 'ellipse' },
@@ -146,6 +148,7 @@ const SolarSystem: React.FC = () => {
         const baseAng = (time * c.speed + c.phase) % (Math.PI*2)
         let x = Math.cos(baseAng) * c.a * S
         let y = Math.sin(baseAng) * c.b * S
+        let fadeAlpha = 1
         // precession
         if (c.mode === 'precess' && c.precession){
           const rot = c.precession * time
@@ -160,26 +163,51 @@ const SolarSystem: React.FC = () => {
           x += lx * Math.sin(time * 0.8 + c.phase)
           y += ly * Math.sin(time * 1.1)
         }
-        // escape bursts
+        // escape bursts with smooth tail and re-entry (no snapping)
         if (c.mode === 'escape'){
           const every = c.burstEvery || 14
           const dur = c.burstDuration || 3
           const gain = c.burstGain || 0.4
-          const tt = time % (every + dur)
-          if (tt > every){
-            const p = Math.min(1, (tt - every) / dur)
+          const tail = c.burstTail ?? 2.5
+          const ret = c.burstReturn ?? 2.5
+          const cycle = every + dur + tail + ret
+          const tt = time % cycle
+          let m = 1
+          let fade = 1
+          if (tt <= every){
+            // idle
+            m = 1; fade = 1
+          } else if (tt <= every + dur){
+            // outward burst (ease-out)
+            const p = (tt - every) / dur
             const k = 1 - Math.pow(1 - p, 3)
-            const m = 1 + gain * k
-            x *= m; y *= m
+            m = 1 + gain * k
+            fade = 1
+          } else if (tt <= every + dur + tail){
+            // drifting farther and fading
+            const p = (tt - (every + dur)) / tail
+            m = 1 + gain * (1 + 0.6 * p)
+            fade = 1 - 0.9 * p
+          } else {
+            // smooth re-entry back to base (ease-in-out)
+            const p = (tt - (every + dur + tail)) / ret
+            const k = 0.5 - 0.5 * Math.cos(Math.min(1, p) * Math.PI)
+            m = 1 + gain * (0.6 * (1 - k))
+            fade = 0.1 + 0.9 * k
           }
+          x *= m; y *= m
+          // store fade factor to apply after depth-based alpha calc
+          fadeAlpha = Math.max(0, Math.min(1, fade))
         }
         const depth = (y + c.b*S) / (2*c.b*S)
         const size = 2 + 3*(1-depth)
-        const alpha = 0.5 + 0.5*(1-depth)
+        const alphaBase = 0.5 + 0.5*(1-depth)
+        const alpha = Math.max(0, Math.min(1, alphaBase * fadeAlpha))
         ctx.fillStyle = c.color.replace('0.95', String(alpha))
         ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2); ctx.fill()
 
         ctx.font = '12px Noto Sans SC, system-ui'
+        if (alpha < 0.15) return // hide labels when fully faded
         ctx.fillStyle = 'rgba(0,0,0,0.6)'
         const label = ` ${c.name} `
         const tw = ctx.measureText(label).width

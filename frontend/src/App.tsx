@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import GlobalBar from './components/GlobalBar'
+import BgmController from './components/BgmController'
 
 // 页面组件
 const HomePage = React.lazy(() => import('./pages/HomePage'))
@@ -14,6 +15,7 @@ function App() {
   return (
     <Router>
       <div className="App">
+        <BgmController />
         <header className="App-header">
           <div className="ao-container ao-screen">
             <h1 className="ao-screen__title" style={{ fontFamily: 'var(--ao-font-terminal)', textTransform: 'uppercase', letterSpacing: '2px' }}>Astro Oracle</h1>
