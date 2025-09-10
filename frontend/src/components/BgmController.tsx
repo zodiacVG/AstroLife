@@ -61,7 +61,7 @@ const BgmController: React.FC = () => {
     try { audioRef.current?.pause() } catch {}
   }
 
-  const toggleMute = () => setMuted(m => !m)
+  
 
   // Listen to external toggle/set events (e.g., GlobalBar button)
   useEffect(() => {
