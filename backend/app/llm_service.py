@@ -13,7 +13,10 @@ class LLMService:
     
     def __init__(self):
         self.api_key = os.getenv("ALIYUN_BAILIAN_API_KEY")
+        # 高质量主模型（用于最终解读/stream）：可配，默认 qwen-plus
         self.model = os.getenv("ALIYUN_BAILIAN_MODEL", "qwen-plus")
+        # 低成本快速模型（仅用于问题航天器匹配）：可配，默认 qwen-flash
+        self.fast_model = os.getenv("ALIYUN_BAILIAN_FAST_MODEL", "qwen-flash")
         
         if not self.api_key:
             # 尝试重新加载环境变量
@@ -29,6 +32,24 @@ class LLMService:
         self.client = OpenAI(
             api_key=self.api_key,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+        )
+
+        # 统一风格的系统提示词（用于生成与流式解读）
+        self.system_prompt_interpretation = (
+            "你是一位冷静、克制且精确的星航预言家。"
+            "你的任务是依据三艘宇宙飞船的神谕，给出明确、可执行的回答。"
+            "风格要求：\n"
+            "- 直接回答问题，不加夸张与情绪化修饰；\n"
+            "- 语气沉静、太空般的克制与疏离感；\n"
+            "- 无鼓励口号、无空洞鸡汤、无表情符号；\n"
+            "- 如有不确定，简洁标注不确定性，而非回避；\n"
+            "- 输出结构清晰，先结论后分析与建议。"
+        )
+
+        # 航天器匹配的系统提示（成本优先，输出严格）
+        self.system_prompt_selection = (
+            "你是一个选择器，任务是根据用户问题在给定航天器列表中选出最匹配的一艘。"
+            "只输出一行，严格格式：SELECTED_ID: <ID>。不输出其它任何内容。"
         )
     
     async def select_question_starship(
@@ -49,12 +70,16 @@ class LLMService:
         if not question or not starships_data:
             return None
         
-        # 构建航天器选择提示词
+        # 构建航天器选择提示词（更严格、更可靠）
         prompt = self._build_starship_selection_prompt(question, starships_data)
         
         try:
-            # 调用百炼模型
-            response = await self._call_bailian_model(prompt)
+            # 使用低成本快速模型进行匹配
+            response = await self._call_bailian_model(
+                prompt,
+                model=self.fast_model,
+                system_prompt=self.system_prompt_selection,
+            )
             print('[LLM select_question_starship] raw:', (response[:200] + '...') if isinstance(response, str) else response)
             
             # 解析模型响应，提取选择的航天器ID
@@ -93,14 +118,18 @@ class LLMService:
         Returns:
             生成的智能解读文本
         """
-        # 构建最终解读提示词
+        # 构建最终解读提示词（高质量、结构化、冷静风格）
         prompt = self._build_final_interpretation_prompt(
             origin_starship, celestial_starship, inquiry_starship, question, user_name
         )
         
         try:
-            # 调用百炼模型生成解读
-            response = await self._call_bailian_model(prompt)
+            # 调用百炼模型生成解读（高质量主模型）
+            response = await self._call_bailian_model(
+                prompt,
+                model=self.model,
+                system_prompt=self.system_prompt_interpretation,
+            )
             return response.strip()
         except Exception as e:
             print(f"大模型生成解读失败: {e}")
@@ -128,7 +157,7 @@ class LLMService:
                 model=self.model,
                 stream=True,
                 messages=[
-                    {"role": "system", "content": "你是一个星航预言家助手，需要根据航天器神谕回答问题。"},
+                    {"role": "system", "content": self.system_prompt_interpretation},
                     {"role": "user", "content": prompt}
                 ]
             )
@@ -156,25 +185,27 @@ class LLMService:
         question: str, 
         starships_data: List[Dict]
     ) -> str:
-        """构建航天器选择提示词"""
-        starships_info = "\n".join([
-            f"ID: {s['archive_id']}, 名称: {s['name_cn']} ({s['name_official']}), "
-            f"关键词: {', '.join(s.get('oracle_keywords', []))}, "
-            f"神谕: {s['oracle_text'][:100]}..."
-            for s in starships_data
-        ])
-        
-        return f"""你是一个星航预言家，需要根据用户的问题选择最匹配的航天器。
+        """构建航天器选择提示词（严格输出、成本优先）"""
+        def _one(s: Dict) -> str:
+            kws = ", ".join(s.get("oracle_keywords", []))
+            oracle = (s.get("oracle_text") or "").strip().replace("\n", " ")
+            if len(oracle) > 100:
+                oracle = oracle[:100] + "..."
+            return (
+                f"ID: {s.get('archive_id')}; 名称: {s.get('name_cn')} ({s.get('name_official')}); "
+                f"关键词: {kws}; 神谕: {oracle}"
+            )
 
-可选的航天器列表：
-{starships_info}
+        starships_info = "\n".join([_one(s) for s in starships_data])
 
-用户问题：{question}
-
-请根据航天器的神谕主题和关键词，选择最符合用户问题的航天器。
-只需要返回选择的航天器ID，格式为：SELECTED_ID: [航天器ID]
-
-不要解释原因，直接返回ID。"""
+        return (
+            "根据用户问题，在下列航天器中选出最匹配的一艘。\n"
+            "匹配依据：优先语义主题与关键词相近，其次神谕意象呼应度；并考虑与问题的时效性/指向性。\n"
+            "若多艘接近，选择与问题核心更直接、可执行指引性更强的一艘。\n"
+            "只能返回一行、严格格式：SELECTED_ID: <ID>（不输出任何解释或其它字符）。\n\n"
+            f"候选航天器：\n{starships_info}\n\n"
+            f"用户问题：{question}\n"
+        )
     
     def _build_final_interpretation_prompt(
         self,
@@ -184,54 +215,53 @@ class LLMService:
         question: Optional[str],
         user_name: Optional[str] = None
     ) -> str:
-        """构建最终解读提示词"""
+        """构建最终解读提示词（结构化、冷静、先结论）"""
         starships_info = []
         
         if origin_starship:
             starships_info.append(
-                f"本命星舟: {origin_starship['name_cn']} - {origin_starship['oracle_text']}"
+                f"本命星舟: {origin_starship['name_cn']} — {origin_starship['oracle_text']}"
             )
         if celestial_starship:
             starships_info.append(
-                f"天时星舟: {celestial_starship['name_cn']} - {celestial_starship['oracle_text']}"
+                f"天时星舟: {celestial_starship['name_cn']} — {celestial_starship['oracle_text']}"
             )
         if inquiry_starship:
             starships_info.append(
-                f"问道星舟: {inquiry_starship['name_cn']} - {inquiry_starship['oracle_text']}"
+                f"问道星舟: {inquiry_starship['name_cn']} — {inquiry_starship['oracle_text']}"
             )
         
         starships_text = "\n".join(starships_info) if starships_info else "暂无航天器匹配"
         
         # 处理空question的情况
-        question_display = question if question else "请根据三艘飞船的神谕，为我提供关于命运和时运的综合解读"
+        question_display = (
+            question if question else "请基于三艘飞船的神谕，给出对我当下处境的明确解读与行动建议"
+        )
         user_line = f"用户姓名：{user_name}\n" if user_name else ""
-        
-        return f"""你是一个星航预言家，需要整合三艘宇宙飞船的神谕来回答用户的问题。
 
-三艘飞船的神谕：
-{starships_text}
-
-用户问题：{question_display}
-{user_line}
-
-请生成一个综合性的神谕解读，结合三艘飞船的启示，用诗意而智慧的语言回答用户的问题。
-解读应该包含：
-1. 对用户问题的直接回应
-2. 结合三艘飞船神谕的深度分析
-3. 实用的建议和启示
-4. 鼓励和正向的结尾
-
-保持神秘而智慧的预言家风格，语言优美而有深度。"""
+        return (
+            "整合以下三艘飞船的神谕，以冷静、克制、精确的方式回答用户的问题。\n"
+            "输出必须结构化、先结论后分析，避免鼓励式结尾与多余寒暄，不使用表情符号。\n"
+            "如有不确定性，简短标注原因。整体保持太空般的疏离与确定性。\n\n"
+            f"三艘飞船的神谕：\n{starships_text}\n\n"
+            f"用户问题：{question_display}\n"
+            f"{user_line}"
+            "请按以下结构输出（使用简洁小标题）：\n"
+            "1) 结论：直接、明确地回答问题（不超过60字）。\n"
+            "2) 依据：分别点出三艘飞船如何支撑该结论（各1-2句）。\n"
+            "3) 行动：给出2-4条可执行建议（每条以动词开头，避免空泛）。\n"
+            "4) 预警（可选）：如存在关键不确定点，简短标注。\n"
+        )
     
-    async def _call_bailian_model(self, prompt: str) -> str:
-        """调用阿里云百炼模型（使用OpenAI兼容模式）"""
+    async def _call_bailian_model(self, prompt: str, *, model: Optional[str] = None, system_prompt: Optional[str] = None) -> str:
+        """调用阿里云百炼模型（OpenAI兼容）。支持自定义模型与系统提示。"""
         try:
             response = self.client.chat.completions.create(
-                model=self.model,
+                model=(model or self.model),
                 messages=[
-                    {"role": "system", "content": "你是一个星航预言家助手，需要根据航天器神谕回答问题。"},
-                    {"role": "user", "content": prompt}
-                ]
+                    {"role": "system", "content": system_prompt or self.system_prompt_interpretation},
+                    {"role": "user", "content": prompt},
+                ],
             )
             # 兼容响应格式：对象、dict、pydantic/base-model-like
             content = None
