@@ -44,7 +44,7 @@
 ## 数据与类型
 
 - 共享类型与常量：放在 `shared/` 目录，前后端共享。
-- 数据文件：`shared/astro_data/starships.json` 可扩展，禁止写死总量或 ID 范围。
+- 数据文件：`data/starships.json` 可扩展，禁止写死总量或 ID 范围。
 
 ## 开发流程
 

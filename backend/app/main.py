@@ -80,7 +80,7 @@ except Exception as _e:
 
 # 加载航天器数据
 def load_starships_data():
-    data_path = Path("../shared/astro_data/starships.json")
+    data_path = Path("../data/starships.json")
     try:
         with open(data_path, 'r', encoding='utf-8') as f:
             return json.load(f)

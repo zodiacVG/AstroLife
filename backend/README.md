@@ -77,7 +77,7 @@ uvicorn app.main:app --reload --port 8000
 
 ## 共享数据路径
 
-服务使用 `shared/astro_data/starships.json` 作为数据源，已在代码中通过项目根路径解析，无需额外配置。
+服务使用 `data/starships.json` 作为数据源，已在代码中通过项目根路径解析，无需额外配置。
 
 ## 历史记录存储（History）
 

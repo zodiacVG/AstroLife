@@ -23,7 +23,7 @@ def load_starships_data() -> Dict:
     # 项目根目录: /Users/zodiacmac/Development/AstroLife
     backend_dir = os.path.dirname(os.path.abspath(__file__))  # /backend/app
     project_root = os.path.dirname(os.path.dirname(backend_dir))  # /Users/zodiacmac/Development/AstroLife
-    data_path = os.path.join(project_root, "shared", "astro_data", "starships.json")
+    data_path = os.path.join(project_root, "data", "starships.json")
     
     try:
         with open(data_path, 'r', encoding='utf-8') as f:

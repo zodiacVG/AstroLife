@@ -27,7 +27,7 @@
 
 ### 前端使用
 ```typescript
-import starshipsData from '../shared/astro_data/starships.json'
+import starshipsData from '../data/starships.json'
 
 // 获取所有任务
 const missions = starshipsData.starships
@@ -54,7 +54,7 @@ import json
 from pathlib import Path
 
 # 读取数据
-data_path = Path("../shared/astro_data/starships.json")
+data_path = Path("../data/starships.json")
 with open(data_path, 'r', encoding='utf-8') as f:
     starships_data = json.load(f)
 

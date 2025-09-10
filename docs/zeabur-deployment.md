@@ -53,7 +53,7 @@ AstroLife/
 - `CORS_ALLOW_ORIGINS`: 填前端域名（部署后再回填），示例：`https://your-frontend.zeabur.app`。也可用多个域逗号分隔。
 - `CORS_ALLOW_ORIGIN_REGEX`: 可选，使用正则放行一批来源。
 
-注意：后端会读取 `../shared/astro_data/starships.json`。Zeabur 克隆的是整个仓库，Root Directory 仅指构建与启动目录，因此共享数据可被正确访问，无需额外拷贝。
+注意：后端会读取 `../data/starships.json`。Zeabur 克隆的是整个仓库，Root Directory 仅指构建与启动目录，因此共享数据可被正确访问，无需额外拷贝。
 
 ---
 
@@ -117,7 +117,7 @@ AstroLife/
 - 查看后端日志中 `[LLM select_question_starship]` 和 `SSE` 的 Prompt 打印。
 
 4) 共享数据找不到：
-- 确认 Service 的 Root Directory 设置为 `backend`；Zeabur 会克隆完整仓库，运行时 `../shared/astro_data/starships.json` 应存在。
+- 确认 Service 的 Root Directory 设置为 `backend`；Zeabur 会克隆完整仓库，运行时 `../data/starships.json` 应存在。
 - 若仍异常，可在后端日志打印 `os.getcwd()` 与目录结构定位。
 
 5) 前端无法连到后端：
