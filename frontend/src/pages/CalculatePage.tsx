@@ -8,7 +8,7 @@ const CalculatePage: React.FC = () => {
   const [birthDate, setBirthDate] = useState('')
   const [question, setQuestion] = useState('')
   const [isCalculating, setIsCalculating] = useState(false)
-  
+
   // 分步状态
   type StepStatus = 'idle' | 'loading' | 'success' | 'error'
   const [originStatus, setOriginStatus] = useState<StepStatus>('idle')
@@ -21,6 +21,11 @@ const CalculatePage: React.FC = () => {
   const [finalTried, setFinalTried] = useState(false)
   const STORAGE_KEY = 'calcState-v1'
   const DEVICE_KEY = 'deviceId-v1'
+
+  // 三舟结果折叠/展开控制
+  const [starshipsCollapsed, setStarshipsCollapsed] = useState(false)
+  const [starshipsUserToggled, setStarshipsUserToggled] = useState(false)
+  const [starshipsAutoCollapsed, setStarshipsAutoCollapsed] = useState(false)
 
   // 恢复会话状态（返回时保留结果）
   useEffect(() => {
@@ -41,7 +46,7 @@ const CalculatePage: React.FC = () => {
         setInterpretation(s.interpretation ?? null)
         setFinalTried(!!s.finalTried)
       }
-    } catch {}
+    } catch { }
   }, [])
 
   // 设备ID（同一浏览器一致）
@@ -69,9 +74,9 @@ const CalculatePage: React.FC = () => {
       interpretation,
       finalTried,
     }
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)) } catch {}
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)) } catch { }
   }, [name, birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
-  
+
   const effectiveName = useMemo(() => (name && name.trim()) ? name.trim() : '你', [name])
   const effectiveQuestion = useMemo(() => (question && question.trim()) ? question.trim() : '请基于本命与天时给出综合性的现实建议与启发。', [question])
 
@@ -81,10 +86,10 @@ const CalculatePage: React.FC = () => {
     const cId = celestialData?.starship?.archive_id
     const iId = inquiryData?.starship?.archive_id
     const hasIds = !!oId && !!cId && !!iId
-    
+
     // 统一：问道星舟总会生成（无问题时使用默认问题）
     const inquiryOk = inquiryStatus === 'success'
-    
+
     return hasIds && originStatus === 'success' && celestialStatus === 'success' && inquiryOk
   }, [originStatus, celestialStatus, inquiryStatus, question, originData, celestialData, inquiryData])
 
@@ -95,7 +100,7 @@ const CalculatePage: React.FC = () => {
     console.log('celestialStatus:', celestialStatus)
     console.log('inquiryStatus:', inquiryStatus)
     console.log('canShowFinal:', canShowFinal)
-    
+
     if (
       originStatus === 'success' &&
       celestialStatus === 'success' &&
@@ -129,9 +134,9 @@ const CalculatePage: React.FC = () => {
 
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // 记录命令行历史已移除，仅保留控制台日志
-  
+
     if (!birthDate) {
       alert('请输入出生日期')
       return
@@ -145,6 +150,11 @@ const CalculatePage: React.FC = () => {
     setOriginStatus('loading')
     setCelestialStatus('loading')
     setInquiryStatus('loading')
+
+    // 重置折叠状态
+    setStarshipsCollapsed(false)
+    setStarshipsUserToggled(false)
+    setStarshipsAutoCollapsed(false)
 
     try {
       // 并发启动三个子计算
@@ -232,6 +242,27 @@ const CalculatePage: React.FC = () => {
 
   const oracleWrapRef = useRef<HTMLDivElement | null>(null)
 
+  // 当三舟全部就绪并可以显示最终解读时，自动折叠三舟卡片，使下方神谕自然显现
+  useEffect(() => {
+    if (
+      canShowFinal &&
+      originStatus === 'success' &&
+      celestialStatus === 'success' &&
+      inquiryStatus === 'success' &&
+      !starshipsAutoCollapsed &&
+      !starshipsUserToggled
+    ) {
+      // 稍作延迟，让用户先看到三舟完成，再自动折叠
+      const t = setTimeout(() => {
+        setStarshipsCollapsed(true)
+        setStarshipsAutoCollapsed(true)
+        // 滚动到神谕区域
+        try { oracleWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch {}
+      }, 300)
+      return () => clearTimeout(t)
+    }
+  }, [canShowFinal, originStatus, celestialStatus, inquiryStatus, starshipsAutoCollapsed, starshipsUserToggled])
+
   return (
     <div className="ao-container ao-screen">
       {/* 标题区域简化：移除冗余文案 */}
@@ -239,7 +270,7 @@ const CalculatePage: React.FC = () => {
         <div className="ao-header--inverted">占卜输入 / Input</div>
         <form onSubmit={handleCalculate} className="ao-form" aria-label="占卜输入">
           <div className="ao-field">
-          <label htmlFor="userName" className="ao-header--standard">姓名 / Name</label>
+            <label htmlFor="userName" className="ao-header--standard">姓名 / Name</label>
             <div className="ao-console-field">
               <input
                 className="ao-input"
@@ -254,7 +285,7 @@ const CalculatePage: React.FC = () => {
           </div>
 
           <div className="ao-field">
-          <label htmlFor="birthDate" className="ao-header--standard">出生日期 / Birth Date</label>
+            <label htmlFor="birthDate" className="ao-header--standard">出生日期 / Birth Date</label>
             <div className="ao-console-field">
               <input
                 className="ao-input"
@@ -269,14 +300,14 @@ const CalculatePage: React.FC = () => {
           </div>
 
           <div className="ao-field">
-          <label htmlFor="question" className="ao-header--standard">问题（可选）/ Question</label>
+            <label htmlFor="question" className="ao-header--standard">问题（可选）/ Question</label>
             <div className="ao-console-field">
               <textarea
                 className="ao-textarea"
                 id="question"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Enter query for oracle analysis..."
+                placeholder="输入你想询问的问题..."
                 rows={2}
               />
               <span className="ao-cursor"></span>
@@ -300,9 +331,24 @@ const CalculatePage: React.FC = () => {
       {(originStatus !== 'idle' || celestialStatus !== 'idle' || inquiryStatus !== 'idle') && (
         <div className="ao-module" role="region" aria-label="占卜结果">
           <div className="ao-header--inverted">[SYSTEM] OUTPUT_TERMINAL</div>
-          
-          {/* 三体共振显示 */}
-          <div className="ao-grid ao-grid--starships">
+
+          {/* 三舟显示控制栏 */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <button
+              type="button"
+              className="ao-button ao-button--sm"
+              onClick={() => {
+                setStarshipsCollapsed((v) => !v)
+                setStarshipsUserToggled(true)
+              }}
+            >{starshipsCollapsed ? '展开三舟 Expand' : '折叠三舟 Collapse'}</button>
+          </div>
+
+          {/* 三体共振显示（可折叠） */}
+          <div
+            className="ao-grid ao-grid--starships"
+            style={{ display: starshipsCollapsed ? 'none' as const : 'grid' as const }}
+          >
             {/* 本命星舟 */}
             {originStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
             {originStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED</div></div>)}
@@ -312,7 +358,7 @@ const CalculatePage: React.FC = () => {
                 <div className="starship-info">
                   <div className="ao-oracle-note" style={{ margin: '8px 0' }}>本命星舟：反映你的内在本质与底层倾向。</div>
                   <div className="starship-name">{originData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {originData.starship.archive_id}</div>
+                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {originData.starship.archive_id}</div>
                   <div className="starship-description ao-clamp-3">{originData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {originData.match_score ?? 0}</div>
                 </div>
@@ -329,7 +375,7 @@ const CalculatePage: React.FC = () => {
                 <div className="starship-info">
                   <div className="ao-oracle-note" style={{ margin: '8px 0' }}>天时星舟：映射当下环境与外部机运。</div>
                   <div className="starship-name">{celestialData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {celestialData.starship.archive_id}</div>
+                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {celestialData.starship.archive_id}</div>
                   <div className="starship-description ao-clamp-3">{celestialData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {celestialData.match_score ?? 0}</div>
                 </div>
@@ -346,7 +392,7 @@ const CalculatePage: React.FC = () => {
                 <div className="starship-info">
                   <div className="ao-oracle-note" style={{ margin: '8px 0' }}>问道星舟：回应你此刻的问题方向。</div>
                   <div className="starship-name">{inquiryData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity:.7, fontSize:12 }}>[ID] {inquiryData.starship.archive_id}</div>
+                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {inquiryData.starship.archive_id}</div>
                   <div className="starship-description ao-clamp-3">{inquiryData.starship.oracle_text}</div>
                   <div className="match-score">[MATCH_SCORE] {inquiryData.match_score ?? 0}</div>
                 </div>
@@ -358,7 +404,7 @@ const CalculatePage: React.FC = () => {
           {/* 神谕解读（流式，直接调用 oracle/stream，传入三艘飞船ID与问题） */}
           {canShowFinal && (
             <div className="ao-module" data-tone="oracle" ref={oracleWrapRef}>
-              <div className="ao-header--inverted">神谕解读 / Oracle</div>
+              <div className="ao-header--inverted">神谕 / Oracle</div>
               <OracleStream
                 key={`${originData?.starship?.archive_id}-${celestialData?.starship?.archive_id}-${inquiryData?.starship?.archive_id}-${question || ''}`}
                 url="/api/v1/oracle/stream"
@@ -390,13 +436,13 @@ const CalculatePage: React.FC = () => {
                     const list = raw ? (JSON.parse(raw) as any[]) : []
                     list.push(record)
                     localStorage.setItem(key, JSON.stringify(list))
-                  } catch {}
+                  } catch { }
                 }}
                 onError={(e) => {
                   console.error('oracle stream error', e)
                 }}
               />
-              <div style={{marginTop:12}}>
+              <div style={{ marginTop: 12 }}>
                 <button
                   className="ao-button ao-button--sm"
                   disabled={!interpretation}
@@ -405,7 +451,7 @@ const CalculatePage: React.FC = () => {
                       const text = interpretation || oracleWrapRef.current?.innerText || ''
                       await navigator.clipboard.writeText(text)
                       alert('已复制 / Copied')
-                    } catch {}
+                    } catch { }
                   }}
                 >复制神谕 Copy</button>
               </div>
