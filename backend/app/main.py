@@ -78,14 +78,55 @@ except Exception as _e:
     # Non-fatal; app continues without media mount
     print("[media] mount failed:", _e)
 
+def _resolve_starships_path() -> Path:
+    """解析 starships.json 的实际路径。
+
+    解析顺序（存在即返回）：
+    1) 显式环境变量 `STARSHIPS_JSON`
+    2) 与后端根（backend）同级的 `data/starships.json`
+    3) 仓库根的 `data/starships.json`（当容器外本地运行且能访问到上一层目录时）
+    4) 当前工作目录下的 `data/starships.json`（兜底）
+    """
+    # 1) 显式环境变量
+    env_path = os.getenv("STARSHIPS_JSON")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+
+    # 基于文件位置定位 backend 根目录
+    backend_root = Path(__file__).resolve().parent.parent  # backend/
+
+    # 2) backend/data/starships.json（容器内常见路径）
+    candidate = backend_root / "data" / "starships.json"
+    if candidate.exists():
+        return candidate
+
+    # 3) 仓库根 data/starships.json（本地运行、Zeabur 非 Docker 情况）
+    repo_root_candidate = backend_root.parent / "data" / "starships.json"
+    if repo_root_candidate.exists():
+        return repo_root_candidate
+
+    # 4) 工作目录相对路径兜底
+    cwd_candidate = Path("data/starships.json").resolve()
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    # 均未找到
+    raise FileNotFoundError(
+        "未能定位到 starships.json。请确保以下任一路径存在:\n"
+        f"- 后端目录: {backend_root / 'data' / 'starships.json'}\n"
+        f"- 仓库根目录: {backend_root.parent / 'data' / 'starships.json'}\n"
+        f"- 或设置环境变量 STARSHIPS_JSON 指向有效文件路径"
+    )
+
+
 # 加载航天器数据
 def load_starships_data():
-    data_path = Path("data/starships.json")
-    try:
-        with open(data_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise Exception(f"航天器数据文件未找到: {data_path}")
+    data_path = _resolve_starships_path()
+    with open(data_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
 
 starships_data = load_starships_data()
 
@@ -134,6 +175,11 @@ async def root():
         "starships_count": len(starships_data.get('starships', []))
     }
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # --- v1 规范化 API ---
 @app.get("/api/v1")
 async def api_v1_root():
@@ -143,6 +189,10 @@ async def api_v1_root():
         "version": "1.0.0",
         "timestamp": datetime.now().isoformat(),
     }
+
+@app.get("/api/v1/health")
+async def api_v1_health():
+    return {"success": True, "status": "ok", "timestamp": datetime.now().isoformat()}
 
 @app.get("/starships")
 async def get_starships():

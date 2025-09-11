@@ -108,7 +108,11 @@ temp/
 *.db
 *.sqlite
 *.sqlite3
+
+# Backend data: keep large JSONs ignored by default but commit the canonical dataset
+# Ignore all JSONs in backend/data except starships.json (required for deployment)
 backend/data/*.json
+!backend/data/starships.json
 
 
 # Backup files

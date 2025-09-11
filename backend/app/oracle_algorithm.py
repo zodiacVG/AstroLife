@@ -15,21 +15,41 @@ import asyncio
 from .llm_service import get_llm_service
 
 # 加载航天器数据
+def _resolve_starships_path() -> Path:
+    """解析 starships.json 的路径，与 app.main 中策略保持一致。"""
+    import os
+    # 1) 环境变量优先
+    env_path = os.getenv("STARSHIPS_JSON")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+
+    backend_root = Path(__file__).resolve().parent.parent
+
+    # 2) backend/data/starships.json
+    candidate = backend_root / "data" / "starships.json"
+    if candidate.exists():
+        return candidate
+
+    # 3) 仓库根 data/starships.json
+    repo_root_candidate = backend_root.parent / "data" / "starships.json"
+    if repo_root_candidate.exists():
+        return repo_root_candidate
+
+    # 4) 工作目录兜底
+    cwd_candidate = Path("data/starships.json").resolve()
+    if cwd_candidate.exists():
+        return cwd_candidate
+
+    raise FileNotFoundError("未能定位到 starships.json，请检查部署数据或设置 STARSHIPS_JSON。")
+
+
 def load_starships_data() -> Dict:
     """加载航天器数据"""
-    import os
-    # 使用正确的绝对路径 - 从项目根目录开始
-    # 当前文件路径: /backend/app/oracle_algorithm.py
-    # 项目根目录: /Users/zodiacmac/Development/AstroLife
-    backend_dir = os.path.dirname(os.path.abspath(__file__))  # /backend/app
-    project_root = os.path.dirname(os.path.dirname(backend_dir))  # /Users/zodiacmac/Development/AstroLife
-    data_path = os.path.join(project_root, "data", "starships.json")
-    
-    try:
-        with open(data_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise Exception(f"航天器数据文件未找到: {data_path}")
+    data_path = _resolve_starships_path()
+    with open(data_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
 
 # 日期处理函数
 def parse_date(date_str: str) -> datetime:

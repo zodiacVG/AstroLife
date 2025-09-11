@@ -10,7 +10,8 @@ services:
       - key: PORT
         value: 8000
     healthCheckPath: /health
-    rootDirectory: backend
+    # 设置构建上下文为项目根目录，以便访问 data 目录
+    rootDirectory: .
 
   - type: web
     name: frontend
