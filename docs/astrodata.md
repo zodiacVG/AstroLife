@@ -83,9 +83,20 @@ oracle_data = [
 
 ## 数据验证
 
-使用共享类型定义进行验证：
+使用前端或后端各自的类型定义进行验证：
 ```typescript
-import { AstroSpacecraft } from '../shared/types/astro.types'
+// 前端类型定义示例
+interface AstroSpacecraft {
+  archive_id: string;
+  name_cn: string;
+  name_official: string;
+  launch_date: string;
+  operator: string;
+  mission_description: string;
+  status: string;
+  oracle_keywords?: string[];
+  oracle_text?: string;
+}
 
 const mission: AstroSpacecraft = {
   archive_id: "018",

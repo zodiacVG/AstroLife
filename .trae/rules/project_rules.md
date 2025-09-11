@@ -28,7 +28,7 @@
 
 - API 访问：统一使用 `frontend/src/lib/api.ts` 组装地址，优先读取 `VITE_API_URL`。
 - 兼容处理：前端接收响应优先读取包裹响应的 `data` 字段，若不存在则回退到历史字段（如 `starships`）。
-- 代码组织：业务页面在 `src/pages`；公共 API 常量推荐从 `shared/constants/astro.constants.ts` 引入（开发环境已允许越级导入）。
+- 代码组织：业务页面在 `src/pages`；公共 API 常量推荐在前端项目中定义并维护。
 - 环境变量：在 `frontend/.env` 配置 `VITE_API_URL`；默认回退 `http://localhost:8000`。
 
 ## 后端规范
@@ -43,7 +43,7 @@
 
 ## 数据与类型
 
-- 共享类型与常量：放在 `shared/` 目录，前后端共享。
+- 类型与常量：前端和后端分别维护自己的类型定义和常量。
 - 数据文件：`data/starships.json` 可扩展，禁止写死总量或 ID 范围。
 
 ## 开发流程
@@ -75,7 +75,7 @@
 1) 规格：在 `docs/api-spec.md` 编写端点（方法/路径/入参/出参/错误码），明确是否返回包裹响应。
 2) 模型：在后端创建 Pydantic 请求/响应模型，定义错误码映射。
 3) 路由：在 `/api/v1/*` 下实现；如替换历史端点，保留兼容别名并计划废弃时间。
-4) 常量：在 `shared/constants/astro.constants.ts` 新增端点常量。
+4) 常量：在前端项目中新增端点常量。
 5) 前端：通过 `frontend/src/lib/api.ts` 调用；优先解析 `data` 字段，必要时兼容历史字段。
 6) 文档：更新 `backend/README.md` 和 `docs/api-spec.md`，在本文件记录开发规范或例外。
 7) 验证：本地联调、添加最小测试用例；预发布验证后再上线。

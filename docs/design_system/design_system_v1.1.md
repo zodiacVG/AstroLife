@@ -147,7 +147,7 @@
 
 - 中英文混排：英文与数字默认等宽；中文正文 20px，数据 18px
 - 大写使用：仅用于屏幕标题/铭牌；正文保持自然大小写
-- 日期与数字：全部采用 `YYYY-MM-DD` 与半角数字；与 `shared/constants/astro.constants.ts` 中常量一致
+- 日期与数字：全部采用 `YYYY-MM-DD` 与半角数字
 
 —
 
@@ -239,5 +239,4 @@
 参考：
 - 现有设计示例 `design_system/designv1.html`
 - 页面实现 `frontend/src/pages/StarshipsPage.tsx`、`frontend/src/pages/CalculatePage.tsx`
-- 常量定义 `shared/constants/astro.constants.ts`
 
