@@ -63,7 +63,6 @@ function resolveApiBase(): string {
   // No env provided
   if (isBrowser()) {
     const host = window.location.hostname
-    const proto = window.location.protocol
     dbg('window.location =', window.location.href)
     // Local dev heuristic
     if (host === 'localhost' || host === '127.0.0.1') {
