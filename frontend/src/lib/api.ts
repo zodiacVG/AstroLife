@@ -1,26 +1,78 @@
-function resolveApiBase(): string {
-  // 1) Explicit env has highest priority
-  const envUrl = (import.meta as any)?.env?.VITE_API_URL as string | undefined
-  if (envUrl) return envUrl
+// Simple debug switch: enable by setting localStorage.AO_DEBUG = '1'
+const DEBUG = (() => {
+  try {
+    return (typeof localStorage !== 'undefined' && localStorage.getItem('AO_DEBUG') === '1')
+      || (import.meta as any)?.env?.MODE !== 'production'
+  } catch { return false }
+})()
 
-  // 2) Browser context heuristics
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname
-    const proto = window.location.protocol
-    // If we're on localhost/127.0.0.1, use that host directly
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return `${proto}//${host}:8000`
+function dbg(...args: any[]) {
+  if (!DEBUG) return
+  try {
+    // group logs once per import
+    if (!(dbg as any)._grouped) {
+      console.groupCollapsed('[api-debug] configuration')
+      ;(dbg as any)._grouped = true
     }
-    // Otherwise, default to localhost to avoid unreachable private IPs
-    // (e.g., 172.29.x.x from container networks)
-    // Tip: set VITE_API_URL to your backend URL in non-local envs.
-    if (typeof console !== 'undefined') {
-      console.warn('[api] VITE_API_URL not set; defaulting to http://localhost:8000')
+    console.log('[api-debug]', ...args)
+  } catch {}
+}
+
+function isBrowser(): boolean { return typeof window !== 'undefined' && typeof document !== 'undefined' }
+
+function isAbsoluteHttpUrl(u: string | undefined): u is string {
+  if (!u) return false
+  try {
+    const url = new URL(u)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch { return false }
+}
+
+function resolveApiBase(): string {
+  const envUrl = (import.meta as any)?.env?.VITE_API_URL as string | undefined
+  const mode = (import.meta as any)?.env?.MODE as string | undefined
+  const dev = (import.meta as any)?.env?.DEV as boolean | undefined
+
+  dbg('env.VITE_API_URL =', envUrl)
+  dbg('env.MODE =', mode, 'env.DEV =', dev)
+
+  if (envUrl) {
+    // Require absolute URL with protocol
+    if (!isAbsoluteHttpUrl(envUrl)) {
+      console.error('[api] Invalid VITE_API_URL:', envUrl, '\nPlease set a full URL with protocol, e.g. https://your-backend.domain')
+      if (isBrowser()) console.info('Tip: In Zeabur, set this on the frontend (static) service and rebuild the frontend.')
+      // Do not guess in production
+      if (isBrowser() && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        throw new Error('VITE_API_URL must be an absolute URL with protocol in production.')
+      }
+      // Local fallback for dev only
+      return 'http://localhost:8000'
     }
-    return 'http://localhost:8000'
+    // Avoid mixed content on https pages
+    if (isBrowser() && window.location.protocol === 'https:' && envUrl.startsWith('http://')) {
+      console.error('[api] VITE_API_URL uses http on an https page. Browsers will block mixed content. Use https backend URL instead:', envUrl)
+      throw new Error('Mixed content blocked: set VITE_API_URL to an https URL')
+    }
+    return envUrl
   }
 
-  // 3) Non-browser (SSR/build) default
+  // No env provided
+  if (isBrowser()) {
+    const host = window.location.hostname
+    const proto = window.location.protocol
+    dbg('window.location =', window.location.href)
+    // Local dev heuristic
+    if (host === 'localhost' || host === '127.0.0.1') {
+      const local = `${proto}//${host}:8000`
+      console.warn('[api] VITE_API_URL not set; defaulting to', local)
+      return local
+    }
+    // Production: be strict and stop early with clear guidance
+    console.error('[api] VITE_API_URL is not set in production. Configure it on the frontend service and rebuild. Example: https://your-backend.domain')
+    throw new Error('VITE_API_URL missing in production')
+  }
+
+  // Non-browser default (SSR/build); keep a sane dev default
   return 'http://localhost:8000'
 }
 
