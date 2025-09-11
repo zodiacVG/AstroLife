@@ -1,15 +1,12 @@
 # Zeabur 部署配置
-# 指定后端使用 Python 3.11 版本，避免 pydantic-core 在 Python 3.13 上的编译问题
+# 使用 Dockerfile 指定后端使用 Python 3.11 版本，避免 pydantic-core 在 Python 3.13 上的编译问题
 
 services:
   - type: web
     name: backend
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
       - key: PORT
         value: 8000
     healthCheckPath: /health

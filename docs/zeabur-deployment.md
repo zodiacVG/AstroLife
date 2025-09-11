@@ -38,10 +38,9 @@ AstroLife/
 
 ## 部署后端（FastAPI）
 
-- Service 类型：`Python`（自动检测）。
+- Service 类型：`Docker`（使用自定义 Dockerfile）。
 - Root Directory：`backend`
-- Build Command：`pip install -r requirements.txt`
-- Start Command：`uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Dockerfile 路径：`./backend/Dockerfile`
 - Health Check Path：`/health`
 
 环境变量（Settings → Environment）：
@@ -54,6 +53,8 @@ AstroLife/
 - `CORS_ALLOW_ORIGIN_REGEX`: 可选，使用正则放行一批来源。
 
 注意：后端会读取 `../data/starships.json`。Zeabur 克隆的是整个仓库，Root Directory 仅指构建与启动目录，因此共享数据可被正确访问，无需额外拷贝。
+
+Dockerfile 使用 Python 3.11 作为基础镜像，避免 pydantic-core 在 Python 3.13 上的编译问题。
 
 ---
 

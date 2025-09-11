@@ -4,6 +4,8 @@
 
 ## 快速开始
 
+### 本地开发
+
 1) 创建并配置环境变量
 
 ```bash
@@ -25,6 +27,21 @@ pip install -r requirements.txt
 ```bash
 cd backend
 uvicorn app.main:app --reload --port 8000
+```
+
+### Docker 部署
+
+1) 构建镜像
+
+```bash
+cd backend
+docker build -t astrolife-backend .
+```
+
+2) 运行容器
+
+```bash
+docker run -p 8000:8000 -e ALIYUN_BAILIAN_API_KEY=your_api_key astrolife-backend
 ```
 
 开启后访问：
@@ -78,6 +95,10 @@ uvicorn app.main:app --reload --port 8000
 ## 共享数据路径
 
 服务使用 `data/starships.json` 作为数据源，已在代码中通过项目根路径解析，无需额外配置。
+
+### 数据文件
+
+项目使用 `data/starships.json` 文件存储航天器数据。在本地开发环境中，数据文件位于后端目录的 `data/` 子目录中。在 Docker 容器中，数据文件会被复制到容器的 `/app/data/` 目录。
 
 ## 历史记录存储（History）
 
