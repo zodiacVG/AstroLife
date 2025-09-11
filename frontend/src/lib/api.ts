@@ -29,9 +29,13 @@ function isAbsoluteHttpUrl(u: string | undefined): u is string {
 }
 
 function resolveApiBase(): string {
-  const envUrl = (import.meta as any)?.env?.VITE_API_URL as string | undefined
-  const mode = (import.meta as any)?.env?.MODE as string | undefined
-  const dev = (import.meta as any)?.env?.DEV as boolean | undefined
+  // IMPORTANT: use direct `import.meta.env.*` access so Vite can statically
+  // replace the values at build time. Indirect access (e.g. `(import.meta as any)?.env`)
+  // prevents replacement and yields `undefined` in production bundles.
+  // Use direct references so Vite replaces them at build time
+  const envUrl = (import.meta as any).env.VITE_API_URL as string | undefined
+  const mode = (import.meta as any).env.MODE as string | undefined
+  const dev = (import.meta as any).env.DEV as boolean | undefined
 
   dbg('env.VITE_API_URL =', envUrl)
   dbg('env.MODE =', mode, 'env.DEV =', dev)
@@ -63,13 +67,13 @@ function resolveApiBase(): string {
     dbg('window.location =', window.location.href)
     // Local dev heuristic
     if (host === 'localhost' || host === '127.0.0.1') {
-      const local = `${proto}//${host}:8000`
-      console.warn('[api] VITE_API_URL not set; defaulting to', local)
-      return local
-    }
     // Production: be strict and stop early with clear guidance
     console.error('[api] VITE_API_URL is not set in production. Configure it on the frontend service and rebuild. Example: https://your-backend.domain')
     throw new Error('VITE_API_URL missing in production')
+    }
+    // Otherwise, use the same protocol as the current page
+    console.warn('[api] VITE_API_URL not set; defaulting to current origin')
+    return window.location.origin
   }
 
   // Non-browser default (SSR/build); keep a sane dev default

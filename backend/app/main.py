@@ -124,6 +124,10 @@ def _resolve_starships_path() -> Path:
 # 加载航天器数据
 def load_starships_data():
     data_path = _resolve_starships_path()
+    try:
+        print(f"[startup] loading starships from: {data_path}")
+    except Exception:
+        pass
     with open(data_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
