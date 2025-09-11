@@ -19,11 +19,8 @@ COPY requirements.txt .
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制应用代码
-COPY app/ ./app/
-
-# 复制数据文件
-COPY data/ ./data/
+# 复制应用代码和数据
+COPY . .
 
 # 暴露端口
 EXPOSE 8000

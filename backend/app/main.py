@@ -80,23 +80,12 @@ except Exception as _e:
 
 # 加载航天器数据
 def load_starships_data():
-    # 尝试多个可能的路径
-    possible_paths = [
-        Path("data/starships.json"),  # 后端目录中的数据文件（Docker 环境）
-        Path("../data/starships.json"),  # 本地开发环境
-        Path("/app/data/starships.json"),  # Docker 容器环境
-    ]
-    
-    for data_path in possible_paths:
-        try:
-            with open(data_path, 'r', encoding='utf-8') as f:
-                print(f"成功从 {data_path} 加载航天器数据")
-                return json.load(f)
-        except FileNotFoundError:
-            continue
-    
-    # 如果所有路径都失败，抛出异常
-    raise Exception(f"航天器数据文件未找到，尝试的路径: {possible_paths}")
+    data_path = Path("data/starships.json")
+    try:
+        with open(data_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise Exception(f"航天器数据文件未找到: {data_path}")
 
 starships_data = load_starships_data()
 
