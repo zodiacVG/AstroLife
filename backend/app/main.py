@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import asyncio
@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from datetime import datetime
+import logging
+import time
+import traceback
+from types import ModuleType
 
 # 加载环境变量
 from pathlib import Path
@@ -33,7 +37,16 @@ def _cors_config() -> dict:
     allow_origins: list[str] = []
     
     if origins_env:
-        allow_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+        raw = [o.strip() for o in origins_env.split(",") if o.strip()]
+        # 规范化：去除尾部斜杠，避免与浏览器 Origin 严格匹配失败
+        allow_origins = [o[:-1] if o.endswith('/') else o for o in raw]
+        # 提示潜在配置问题
+        try:
+            stripped = [o for o in raw if o.endswith('/')]
+            if stripped:
+                print("[CORS] normalized origins (removed trailing '/'):", stripped)
+        except Exception:
+            pass
     elif is_dev:
         # 开发环境：允许所有localhost端口
         cfg["allow_origins"] = ["*"]
@@ -64,8 +77,95 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ---- Logging setup ----
+def _setup_logging():
+    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(level=getattr(logging, level, logging.INFO))
+    # Reuse uvicorn access logger handlers if available
+    try:
+        uvicorn_access = logging.getLogger("uvicorn.access")
+        root = logging.getLogger()
+        for h in uvicorn_access.handlers:
+            if h not in root.handlers:
+                root.addHandler(h)
+    except Exception:
+        pass
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
+
+_setup_logging()
+log = logging.getLogger("app")
+
+# --- import compatibility helpers (works for both `uvicorn app.main:app` and `uvicorn main:app`) ---
+def _import_oracle_module() -> ModuleType:
+    try:
+        import app.oracle_algorithm as m  # type: ignore
+        return m
+    except ModuleNotFoundError:
+        import oracle_algorithm as m  # type: ignore
+        return m
+
+def _import_llm_module() -> ModuleType:
+    try:
+        import app.llm_service as m  # type: ignore
+        return m
+    except ModuleNotFoundError:
+        import llm_service as m  # type: ignore
+        return m
+
+# Simple HTTP middleware for request tracing
+@app.middleware("http")
+async def _req_logger(request: Request, call_next):
+    start = time.perf_counter()
+    rid = request.headers.get("x-request-id") or os.urandom(4).hex()
+    try:
+        origin = request.headers.get("origin")
+        ua = request.headers.get("user-agent", "-")
+        log.info("[req] id=%s %s %s origin=%s ua=%s", rid, request.method, request.url.path, origin, ua)
+        if request.method == 'OPTIONS':
+            acrm = request.headers.get('access-control-request-method')
+            acrh = request.headers.get('access-control-request-headers')
+            log.info("[preflight] id=%s ACRM=%s ACRH=%s", rid, acrm, acrh)
+        response = await call_next(request)
+        dur_ms = int((time.perf_counter() - start) * 1000)
+        log.info(f"[res] id=%s %s %s status=%s dur=%sms", rid, request.method, request.url.path, getattr(response, 'status_code', '-'), dur_ms)
+        return response
+    except Exception as e:
+        dur_ms = int((time.perf_counter() - start) * 1000)
+        log.error(f"[err] id=%s %s %s dur=%sms exc=%s\n%s", rid, request.method, request.url.path, dur_ms, e, traceback.format_exc())
+        raise
+
+# Global exception logging (keeps default behavior while ensuring stacktrace is logged)
+@app.exception_handler(Exception)
+async def _unhandled_exc_handler(request: Request, exc: Exception):
+    log.error("[panic] %s %s %s\n%s", request.method, request.url.path, exc, traceback.format_exc())
+    # Preserve existing FastAPI default for unhandled exceptions
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=500, content={
+        "success": False,
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": str(exc),
+    })
+
 # CORS配置
 _cfg = _cors_config()
+
+# 打印 CORS 相关环境变量与最终生效配置，便于线上排查
+try:
+    print("[CORS] ENVIRONMENT:", os.getenv("ENVIRONMENT"))
+    print("[CORS] CORS_ALLOW_ORIGINS:", os.getenv("CORS_ALLOW_ORIGINS"))
+    print("[CORS] CORS_ALLOW_ORIGIN_REGEX:", os.getenv("CORS_ALLOW_ORIGIN_REGEX"))
+    _eff = {
+        "allow_origins": _cfg.get("allow_origins"),
+        "allow_origin_regex": _cfg.get("allow_origin_regex"),
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    print("[CORS] effective:", _eff)
+except Exception as _e:
+    print("[CORS] print failed:", _e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -251,11 +351,9 @@ async def get_starship_v1(archive_id: str):
 async def calculate_oracle(request: CalculationRequest):
     """计算神谕API端点（异步版本）"""
     try:
-        # 直接导入算法模块
-        from app.oracle_algorithm import calculate_oracle
-        
-        # 调用核心算法（异步）
-        result = await calculate_oracle(request.birth_date, request.question)
+        # 兼容导入算法模块并调用（异步）
+        _oracle = _import_oracle_module()
+        result = await _oracle.calculate_oracle(request.birth_date, request.question)
         
         return {
             "success": True,
@@ -271,16 +369,24 @@ async def calculate_oracle(request: CalculationRequest):
 
 @app.post("/api/v1/calculate")
 async def calculate_oracle_v1(request: CalculationRequest):
-    return await calculate_oracle(request)
+    # 纠正参数传递：oracle_algorithm.calculate_oracle(birth_date_str, question)
+    try:
+        _oracle = _import_oracle_module()
+        result = await _oracle.calculate_oracle(request.birth_date, request.question)
+        return {"success": True, "data": result, "message": "OK", "timestamp": datetime.now().isoformat()}
+    except Exception as e:
+        log.error("[calculate] failed: %s\n%s", e, traceback.format_exc())
+        raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
 
 # ---- Divine endpoints (v1) ----
 @app.post("/api/v1/divine/origin")
 async def divine_origin(payload: DivineOriginRequest):
     try:
         print('[API] /divine/origin payload:', payload.model_dump())
-        from app.oracle_algorithm import parse_date, calculate_origin_starship
-        birth_date = parse_date(payload.birth_date)
-        starship, score = calculate_origin_starship(birth_date, starships_data.get("starships", []))
+        _oracle = _import_oracle_module()
+        birth_date = _oracle.parse_date(payload.birth_date)
+        starship, score = _oracle.calculate_origin_starship(birth_date, starships_data.get("starships", []))
+        log.info("[divine.origin] birth=%s result=%s score=%.3f", payload.birth_date, starship and starship.get('archive_id'), score)
         return {
             "success": True,
             "data": {
@@ -295,6 +401,7 @@ async def divine_origin(payload: DivineOriginRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"code": "INVALID_DATE_FORMAT", "message": str(e)})
     except Exception as e:
+        log.error("[divine.origin] failed: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
 
 
@@ -302,9 +409,10 @@ async def divine_origin(payload: DivineOriginRequest):
 async def divine_celestial(payload: DivineCelestialRequest):
     try:
         print('[API] /divine/celestial payload:', payload.model_dump())
-        from app.oracle_algorithm import parse_date, calculate_celestial_starship
-        current_date = parse_date(payload.inquiry_date) if payload.inquiry_date else datetime.now()
-        starship, score = calculate_celestial_starship(current_date, starships_data.get("starships", []))
+        _oracle = _import_oracle_module()
+        current_date = _oracle.parse_date(payload.inquiry_date) if payload.inquiry_date else datetime.now()
+        starship, score = _oracle.calculate_celestial_starship(current_date, starships_data.get("starships", []))
+        log.info("[divine.celestial] date=%s result=%s score=%.3f", payload.inquiry_date or 'now', starship and starship.get('archive_id'), score)
         return {
             "success": True,
             "data": {
@@ -319,6 +427,7 @@ async def divine_celestial(payload: DivineCelestialRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"code": "INVALID_DATE_FORMAT", "message": str(e)})
     except Exception as e:
+        log.error("[divine.celestial] failed: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
 
 
@@ -326,8 +435,9 @@ async def divine_celestial(payload: DivineCelestialRequest):
 async def divine_inquiry(payload: DivineInquiryRequest):
     try:
         print('[API] /divine/inquiry payload:', payload.model_dump())
-        from app.oracle_algorithm import calculate_inquiry_starship
-        starship, score = await calculate_inquiry_starship(payload.question, starships_data.get("starships", []))
+        _oracle = _import_oracle_module()
+        starship, score = await _oracle.calculate_inquiry_starship(payload.question, starships_data.get("starships", []))
+        log.info("[divine.inquiry] q.len=%s result=%s score=%.3f", len(payload.question or ''), starship and starship.get('archive_id'), score)
         return {
             "success": True,
             "data": {
@@ -342,6 +452,7 @@ async def divine_inquiry(payload: DivineInquiryRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"code": "MISSING_REQUIRED_FIELD", "message": str(e)})
     except Exception as e:
+        log.error("[divine.inquiry] failed: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail={"code": "CALCULATION_ERROR", "message": str(e)})
 
 
@@ -355,13 +466,13 @@ async def divine_inquiry(payload: DivineInquiryRequest):
 async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str = "", name: str = ""):
     """使用前端已计算出的三艘飞船与问题，流式生成最终解读（SSE）。"""
     try:
-        from app.oracle_algorithm import load_starships_data
-        from app.llm_service import get_llm_service
+        _oracle = _import_oracle_module()
+        _llm = _import_llm_module()
 
         print('[SSE] /api/v1/oracle/stream params:', {
             'origin_id': origin_id, 'celestial_id': celestial_id, 'inquiry_id': inquiry_id, 'question': question, 'name': name
         })
-        data = load_starships_data()
+        data = _oracle.load_starships_data()
         starships = data.get("starships", [])
 
         def _by_id(sid: str):
@@ -384,7 +495,7 @@ async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, ques
 
         def _stream():
             try:
-                llm = get_llm_service()
+                llm = _llm.get_llm_service()
                 # 打印发送给模型的提示词（仅用于调试）
                 try:
                     prompt = llm._build_final_interpretation_prompt(origin, celestial, inquiry, question, name)  # type: ignore[attr-defined]

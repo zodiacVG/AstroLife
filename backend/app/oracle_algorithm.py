@@ -11,8 +11,11 @@ import re
 from pathlib import Path
 import asyncio
 
-# 导入LLM服务
-from app.llm_service import get_llm_service
+# 导入LLM服务（兼容包内/顶层两种运行方式）
+try:
+    from app.llm_service import get_llm_service  # type: ignore
+except ModuleNotFoundError:
+    from llm_service import get_llm_service  # type: ignore
 
 # 加载航天器数据
 def _resolve_starships_path() -> Path:
