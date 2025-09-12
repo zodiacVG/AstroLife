@@ -25,28 +25,34 @@ def _cors_config() -> dict:
     """
     origins_env = os.getenv("CORS_ALLOW_ORIGINS", "")
     origin_regex_env = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
-
-    # 默认允许本机端口（便于显式匹配）
-    default_locals = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+    
+    # 检查是否为开发环境
+    is_dev = os.getenv("ENVIRONMENT", "").lower() in ("dev", "development", "")
 
     cfg: dict[str, Any] = {}
     allow_origins: list[str] = []
+    
     if origins_env:
         allow_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+    elif is_dev:
+        # 开发环境：允许所有localhost端口
+        cfg["allow_origins"] = ["*"]
     else:
-        allow_origins = default_locals
+        # 生产环境：默认允许的本机端口
+        allow_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
 
-    cfg["allow_origins"] = allow_origins
+    if allow_origins:
+        cfg["allow_origins"] = allow_origins
 
-    # 当未显式指定 origins 时，同时允许常见私网段与 localhost 的正则
+    # 当未显式指定 origins 且未设置开发环境通配符时，同时允许常见私网段与 localhost 的正则
     if origin_regex_env:
         cfg["allow_origin_regex"] = origin_regex_env
-    elif not origins_env:
+    elif "allow_origins" not in cfg and not origins_env and not is_dev:
         # 允许：localhost/127.0.0.1 以及 10.x.x.x、172.16-31.x.x、192.168.x.x 任意端口
         cfg["allow_origin_regex"] = r"^http://(localhost|127\\.0\\.0\\.1|10\\.[0-9.]+|172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9.]+|192\\.168\\.[0-9.]+):\\d+$"
 
@@ -69,11 +75,20 @@ app.add_middleware(
 )
 
 # ---- Static media (for audio/video) ----
-# Mount backend/data at /media to serve audio with HTTP range support.
+# Mount data directory at /media to serve audio with HTTP range support.
+# Handle both local layout (backend/app -> backend/data) and container layout (/app -> /app/data).
 try:
-    media_dir = Path(__file__).parent.parent / "data"
-    if media_dir.exists():
+    candidates = [
+        Path(__file__).resolve().parent.parent / "data",  # local: backend/data
+        Path(__file__).resolve().parent / "data",         # container: /app/data
+        Path.cwd() / "data",                               # fallback: CWD/data
+    ]
+    media_dir = next((p for p in candidates if p.exists()), None)
+    if media_dir:
+        print(f"[media] mounting static directory: {media_dir}")
         app.mount("/media", StaticFiles(directory=str(media_dir), html=False), name="media")
+    else:
+        print("[media] no data directory found; /media will not be available")
 except Exception as _e:
     # Non-fatal; app continues without media mount
     print("[media] mount failed:", _e)
@@ -237,7 +252,7 @@ async def calculate_oracle(request: CalculationRequest):
     """计算神谕API端点（异步版本）"""
     try:
         # 直接导入算法模块
-        from .oracle_algorithm import calculate_oracle
+        from app.oracle_algorithm import calculate_oracle
         
         # 调用核心算法（异步）
         result = await calculate_oracle(request.birth_date, request.question)
@@ -263,7 +278,7 @@ async def calculate_oracle_v1(request: CalculationRequest):
 async def divine_origin(payload: DivineOriginRequest):
     try:
         print('[API] /divine/origin payload:', payload.model_dump())
-        from .oracle_algorithm import parse_date, calculate_origin_starship
+        from app.oracle_algorithm import parse_date, calculate_origin_starship
         birth_date = parse_date(payload.birth_date)
         starship, score = calculate_origin_starship(birth_date, starships_data.get("starships", []))
         return {
@@ -287,7 +302,7 @@ async def divine_origin(payload: DivineOriginRequest):
 async def divine_celestial(payload: DivineCelestialRequest):
     try:
         print('[API] /divine/celestial payload:', payload.model_dump())
-        from .oracle_algorithm import parse_date, calculate_celestial_starship
+        from app.oracle_algorithm import parse_date, calculate_celestial_starship
         current_date = parse_date(payload.inquiry_date) if payload.inquiry_date else datetime.now()
         starship, score = calculate_celestial_starship(current_date, starships_data.get("starships", []))
         return {
@@ -311,7 +326,7 @@ async def divine_celestial(payload: DivineCelestialRequest):
 async def divine_inquiry(payload: DivineInquiryRequest):
     try:
         print('[API] /divine/inquiry payload:', payload.model_dump())
-        from .oracle_algorithm import calculate_inquiry_starship
+        from app.oracle_algorithm import calculate_inquiry_starship
         starship, score = await calculate_inquiry_starship(payload.question, starships_data.get("starships", []))
         return {
             "success": True,
@@ -340,8 +355,8 @@ async def divine_inquiry(payload: DivineInquiryRequest):
 async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, question: str = "", name: str = ""):
     """使用前端已计算出的三艘飞船与问题，流式生成最终解读（SSE）。"""
     try:
-        from .oracle_algorithm import load_starships_data
-        from .llm_service import get_llm_service
+        from app.oracle_algorithm import load_starships_data
+        from app.llm_service import get_llm_service
 
         print('[SSE] /api/v1/oracle/stream params:', {
             'origin_id': origin_id, 'celestial_id': celestial_id, 'inquiry_id': inquiry_id, 'question': question, 'name': name

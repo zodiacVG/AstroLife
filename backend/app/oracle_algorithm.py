@@ -12,7 +12,7 @@ from pathlib import Path
 import asyncio
 
 # 导入LLM服务
-from .llm_service import get_llm_service
+from app.llm_service import get_llm_service
 
 # 加载航天器数据
 def _resolve_starships_path() -> Path:
