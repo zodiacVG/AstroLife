@@ -600,7 +600,12 @@ async def oracle_stream(origin_id: str, celestial_id: str, inquiry_id: str, ques
                 llm = _llm.get_llm_service()
                 # 打印发送给模型的提示词（仅用于调试）
                 try:
-                    prompt = llm._build_final_interpretation_prompt(origin, celestial, inquiry, question, name)  # type: ignore[attr-defined]
+                    # 统一从 prompts 构建提示
+                    try:
+                        from app.prompts import build_interpretation_user_prompt as _build_prompt  # type: ignore
+                    except ModuleNotFoundError:
+                        from prompts import build_interpretation_user_prompt as _build_prompt  # type: ignore
+                    prompt = _build_prompt(origin, celestial, inquiry, question, name)
                     print('[SSE] prompt to LLM (first 800):\n' + (prompt[:800] + ('...' if len(prompt) > 800 else '')))
                 except Exception as _e:
                     print('[SSE] prompt build log failed:', _e)
