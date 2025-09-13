@@ -85,3 +85,46 @@ npm run start        # 并行：Vite preview + Uvicorn（无 reload）
 
 - 看到 Docker 或 Turborepo 的说明？那些来自历史文档，与当前实现无关
 - `frontend/node_modules` 目录历史残留：已在 `.gitignore` 忽略，后续可清理仓库中该目录
+
+## UI 修复与约定（2025-09）
+
+为解决“控制栏按钮点击后偶发消失/联动消失”的问题，并优化占卜流程体验，本次前端做了如下变更与约定：
+
+- 控制栏稳定性
+  - 去除模糊滤镜以避免部分浏览器对 `position: sticky` 的层合成异常。
+  - 采用 `position: sticky`，并通过 `transform: translateZ(0)` 稳定图层。
+  - 变更位置：
+    - frontend/src/styles/ao-design.css:151
+
+- 按钮视觉状态（避免 currentColor 竞态）
+  - 不再使用 `currentColor` 同时驱动背景与文字色；统一采用显式的主题变量色。
+  - 仅保留点击瞬时反馈（`:active`），去除 hover 与持久 pressed（`aria-pressed`）高亮，避免残留态。
+  - 变更位置：
+    - frontend/src/styles/ao-design.css:85
+    - frontend/src/styles/ao-design.css:96
+    - frontend/src/styles/ao-design.css:100
+
+- 开始按钮的“处理中”状态（与流式输出同步）
+  - 之前：三步并发计算结束后立即结束“处理中”，导致神谕流式期间按钮恢复为“开始占卜”。
+  - 现在：仅当无法进入流式阶段时才结束；进入流式后在 `onDone`/`onError` 里结束。
+  - 变更位置：
+    - frontend/src/pages/CalculatePage.tsx:320
+    - frontend/src/pages/CalculatePage.tsx:329
+    - frontend/src/pages/CalculatePage.tsx:505
+    - frontend/src/pages/CalculatePage.tsx:531
+
+- 三舟卡片信息增强
+  - 增加三舟解释：
+    - ORIGIN（本命之舟）：内在禀赋与稳定气质。
+    - CELESTIAL（天时之舟）：当下时势与节律。
+    - INQUIRY（问道之舟）：与问题共振的行动线索。
+  - 展示匹配度与关键词（最多 3 个），保留“查看详情”。
+  - 变更位置：
+    - frontend/src/pages/CalculatePage.tsx:555
+
+### 后续编辑指引
+
+- 如需恢复 hover/pressed 效果，请避免 `currentColor` 同时作为 `background` 与 `color` 的来源；推荐显式使用 `var(--ao-color-system)` 或 `var(--ao-color-oracle)`。
+- 若再次出现粘性栏闪烁/隐藏，可尝试：
+  - 移除所在父层的 `overflow: hidden`/`filter`/`backdrop-filter`。
+  - 为栏添加 `isolation: isolate;` 或 `will-change: transform;`，按最小必要原则逐项启用。

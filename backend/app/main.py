@@ -14,6 +14,8 @@ import logging
 import time
 import traceback
 from types import ModuleType
+import hmac
+import hashlib
 
 # 加载环境变量
 from pathlib import Path
@@ -29,11 +31,17 @@ def _cors_config() -> dict:
     """
     origins_env = os.getenv("CORS_ALLOW_ORIGINS", "")
     origin_regex_env = os.getenv("CORS_ALLOW_ORIGIN_REGEX", "")
-    
+
     # 检查是否为开发环境
-    is_dev = os.getenv("ENVIRONMENT", "").lower() in ("dev", "development", "")
+    is_dev = os.getenv("ENVIRONMENT", "").lower() in ("dev", "development")
 
     cfg: dict[str, Any] = {}
+
+    # 开发环境：无条件放行所有 Origin，避免局域网 IP/端口变化导致本地调试卡住。
+    # 注意：仅在 ENVIRONMENT=development 时生效，不影响生产部署策略。
+    if is_dev:
+        cfg["allow_origins"] = ["*"]
+        return cfg
     allow_origins: list[str] = []
     
     if origins_env:
@@ -47,9 +55,6 @@ def _cors_config() -> dict:
                 print("[CORS] normalized origins (removed trailing '/'):", stripped)
         except Exception:
             pass
-    elif is_dev:
-        # 开发环境：允许所有localhost端口
-        cfg["allow_origins"] = ["*"]
     else:
         # 生产环境：默认允许的本机端口
         allow_origins = [
@@ -81,15 +86,16 @@ app = FastAPI(
 def _setup_logging():
     level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(level=getattr(logging, level, logging.INFO))
-    # Reuse uvicorn access logger handlers if available
-    try:
-        uvicorn_access = logging.getLogger("uvicorn.access")
-        root = logging.getLogger()
-        for h in uvicorn_access.handlers:
-            if h not in root.handlers:
-                root.addHandler(h)
-    except Exception:
-        pass
+    # Important: do NOT attach uvicorn.access handlers to our app/root loggers,
+    # otherwise AccessFormatter will try to parse arbitrary app logs and crash.
+    # Keep app logger isolated with a simple StreamHandler.
+    app_logger = logging.getLogger("app")
+    app_logger.propagate = False
+    if not app_logger.handlers:
+        h = logging.StreamHandler()
+        fmt = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+        h.setFormatter(fmt)
+        app_logger.addHandler(h)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
 
@@ -166,9 +172,17 @@ try:
 except Exception as _e:
     print("[CORS] print failed:", _e)
 
+# 在开发环境并使用通配放行时，关闭 credentials 以允许 `*` 响应头，避免浏览器拒绝。
+_allow_credentials = True
+try:
+    if os.getenv("ENVIRONMENT", "").lower() in ("dev", "development") and _cfg.get("allow_origins") == ["*"]:
+        _allow_credentials = False
+except Exception:
+    pass
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
     **_cfg,
@@ -312,6 +326,94 @@ async def api_v1_root():
 @app.get("/api/v1/health")
 async def api_v1_health():
     return {"success": True, "status": "ok", "timestamp": datetime.now().isoformat()}
+
+@app.get('/api/v1/activation/status')
+async def activation_status():
+    """Return whether activation is required (i.e., ACTIVATION_SECRET is set)."""
+    required = bool(os.getenv('ACTIVATION_SECRET'))
+    return {
+        "success": True,
+        "required": required,
+        "timestamp": datetime.now().isoformat(),
+    }
+
+# ---- Activation: verify and record one-time codes ----
+_ACT_DATA_DIR = Path(__file__).resolve().parent / 'data'
+_ACT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_ACT_FILE = _ACT_DATA_DIR / 'activations.json'
+
+def _act_load() -> dict:
+    try:
+        if _ACT_FILE.exists():
+            return json.loads(_ACT_FILE.read_text(encoding='utf-8'))
+    except Exception as e:
+        log.error('[activation] load failed: %s', e)
+    return {}
+
+def _act_save(d: dict) -> None:
+    try:
+        _ACT_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding='utf-8')
+    except Exception as e:
+        log.error('[activation] save failed: %s', e)
+
+def _act_checksum(payload: str, secret: str) -> int:
+    """Compute a single check digit (0-9) for a numeric payload using secret.
+
+    This enables short numeric codes with a secret-tied checksum.
+    """
+    mac = hmac.new(secret.encode('utf-8'), payload.encode('utf-8'), hashlib.sha256).digest()
+    # Use the first 4 bytes to build a small integer, then mod 10
+    num = int.from_bytes(mac[:4], 'big')
+    return num % 10
+
+def _act_verify(code: str, secret: str) -> bool:
+    """Verify a short numeric activation code with trailing check digit.
+
+    Accepts 4-6 digits. The last digit is the check digit of the preceding digits.
+    """
+    if not code or not code.isdigit():
+        return False
+    if len(code) < 4 or len(code) > 6:
+        return False
+    base, check = code[:-1], code[-1]
+    return str(_act_checksum(base, secret)) == check
+
+class ActivationRequest(BaseModel):
+    code: str
+    device_id: Optional[str] = None
+
+@app.post('/api/v1/activate')
+async def api_activate(payload: ActivationRequest, request: Request):
+    secret = os.getenv('ACTIVATION_SECRET')
+    if not secret:
+        # no secret configured: allow activation (dev mode)
+        return {"success": True, "message": "activation skipped (no secret)", "timestamp": datetime.now().isoformat()}
+    code = (payload.code or '').strip()
+    if not _act_verify(code, secret):
+        raise HTTPException(status_code=400, detail={"code": "INVALID_CODE", "message": "激活码无效"})
+    device_id = (payload.device_id or '').strip() or request.headers.get('x-device-id') or ''
+    store = _act_load()
+    rec = store.get(code)
+    if rec:
+        # 放开唯一性限制：同一码可多设备使用。做次数累计记录。
+        rec.setdefault('uses', 1)
+        rec['uses'] = int(rec['uses']) + 1
+        last = rec.get('last_used_at')
+        rec['last_used_at'] = datetime.now().isoformat()
+        # 可选：记录最近一次 device/ip（会覆盖）
+        rec['device_id'] = device_id or rec.get('device_id') or None
+        rec['ip'] = request.client.host if request.client else (rec.get('ip') or None)
+        store[code] = rec
+        _act_save(store)
+        return {"success": True, "message": "activated", "timestamp": rec['last_used_at']}
+    store[code] = {
+        'device_id': device_id or None,
+        'used_at': datetime.now().isoformat(),
+        'uses': 1,
+        'ip': request.client.host if request.client else None,
+    }
+    _act_save(store)
+    return {"success": True, "message": "activated", "timestamp": datetime.now().isoformat()}
 
 @app.get("/starships")
 async def get_starships():

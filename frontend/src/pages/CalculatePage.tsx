@@ -1,53 +1,62 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import OracleStream from '../components/OracleStream'
 import { api } from '../lib/api'
 
 const CalculatePage: React.FC = () => {
-  const [name, setName] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [question, setQuestion] = useState('')
-  const [isCalculating, setIsCalculating] = useState(false)
-
-  // 分步状态
-  type StepStatus = 'idle' | 'loading' | 'success' | 'error'
-  const [originStatus, setOriginStatus] = useState<StepStatus>('idle')
-  const [celestialStatus, setCelestialStatus] = useState<StepStatus>('idle')
-  const [inquiryStatus, setInquiryStatus] = useState<StepStatus>('idle')
-  const [originData, setOriginData] = useState<any>(null)
-  const [celestialData, setCelestialData] = useState<any>(null)
-  const [inquiryData, setInquiryData] = useState<any>(null)
-  const [interpretation, setInterpretation] = useState<string | null>(null)
-  const [finalTried, setFinalTried] = useState(false)
   const STORAGE_KEY = 'calcState-v1'
   const DEVICE_KEY = 'deviceId-v1'
 
-  // 三舟结果折叠/展开控制
-  const [starshipsCollapsed, setStarshipsCollapsed] = useState(false)
-  const [starshipsUserToggled, setStarshipsUserToggled] = useState(false)
-  const [starshipsAutoCollapsed, setStarshipsAutoCollapsed] = useState(false)
-
-  // 恢复会话状态（返回时保留结果）
-  useEffect(() => {
+  // 预读本地快照（仅首渲染读取一次，避免 effect 时序问题）
+  const savedRef = useRef<any | null>(null)
+  if (savedRef.current === null) {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const s = JSON.parse(raw)
-      if (s) {
-        setName(s.name || '')
-        setBirthDate(s.birthDate || '')
-        setQuestion(s.question || '')
-        setOriginStatus(s.originStatus || 'idle')
-        setCelestialStatus(s.celestialStatus || 'idle')
-        setInquiryStatus(s.inquiryStatus || 'idle')
-        setOriginData(s.originData || null)
-        setCelestialData(s.celestialData || null)
-        setInquiryData(s.inquiryData || null)
-        setInterpretation(s.interpretation ?? null)
-        setFinalTried(!!s.finalTried)
-      }
-    } catch { }
-  }, [])
+      const raw = localStorage.getItem(STORAGE_KEY)
+      savedRef.current = raw ? JSON.parse(raw) : null
+    } catch { savedRef.current = null }
+  }
+
+  const saved = savedRef.current || {}
+
+  const [name, setName] = useState<string>(() => saved.name || '')
+  // 默认出生日期：2000-01-01
+  const [birthDate, setBirthDate] = useState<string>(() => saved.birthDate || '2000-01-01')
+  const [question, setQuestion] = useState<string>(() => saved.question || '')
+  const [isCalculating, setIsCalculating] = useState<boolean>(false)
+  // 控制是否是用户主动发起（避免返回页面时自动开始）
+  const [hasUserInitiated, setHasUserInitiated] = useState<boolean>(false)
+  // 神谕流式是否完成
+  const [oracleDone, setOracleDone] = useState<boolean>(() => !!(saved.interpretation && String(saved.interpretation).trim()))
+
+  // 分步状态
+  type StepStatus = 'idle' | 'loading' | 'success' | 'error'
+  const [originStatus, setOriginStatus] = useState<StepStatus>(() => saved.originStatus || 'idle')
+  const [celestialStatus, setCelestialStatus] = useState<StepStatus>(() => saved.celestialStatus || 'idle')
+  const [inquiryStatus, setInquiryStatus] = useState<StepStatus>(() => saved.inquiryStatus || 'idle')
+  const [originData, setOriginData] = useState<any>(() => saved.originData || null)
+  const [celestialData, setCelestialData] = useState<any>(() => saved.celestialData || null)
+  const [inquiryData, setInquiryData] = useState<any>(() => saved.inquiryData || null)
+  const [interpretation, setInterpretation] = useState<string | null>(() => saved.interpretation ?? null)
+  const [finalTried, setFinalTried] = useState<boolean>(() => !!(saved.interpretation && String(saved.interpretation).trim()))
+
+  // 三舟结果折叠/展开控制
+  // 简洁卡片展示（不再折叠控制）
+
+  // 激活码状态
+  const [activated, setActivated] = useState<boolean>(() => {
+    try { return localStorage.getItem('activation_ok') === '1' } catch { return false }
+  })
+  const [activationCode, setActivationCode] = useState('')
+  const [activationError, setActivationError] = useState<string | null>(null)
+  const [isActivating, setIsActivating] = useState(false)
+  // 体验计数（未激活可体验 2 次）
+  const TRIAL_KEY = 'trial_count_v1'
+  const [trialCount, setTrialCount] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem(TRIAL_KEY) || '0') || 0 } catch { return 0 }
+  })
+
+  // 移除挂载后再恢复的时序，改为首渲染即取值（见上方 useState 初始化）
 
   // 设备ID（同一浏览器一致）
   const getDeviceId = () => {
@@ -59,7 +68,7 @@ const CalculatePage: React.FC = () => {
     return id
   }
 
-  // 持久化关键状态
+  // 持久化关键状态（本地永久存储，除非点击“新占卜”清除）
   useEffect(() => {
     const snapshot = {
       name,
@@ -74,8 +83,53 @@ const CalculatePage: React.FC = () => {
       interpretation,
       finalTried,
     }
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)) } catch { }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)) } catch { }
   }, [name, birthDate, question, originStatus, celestialStatus, inquiryStatus, originData, celestialData, inquiryData, interpretation, finalTried])
+
+  // 若后端未配置 ACTIVATION_SECRET，后端会跳过校验。
+  // 这里在未激活且页面加载时做一次探测：
+  // 调用 /api/v1/activation/status；若 required=false，则前端自动放行。
+  useEffect(() => {
+    if (activated) return
+    let aborted = false
+    ;(async () => {
+      try {
+        const resp = await fetch(api('/api/v1/activation/status'))
+        const json = await resp.json().catch(() => ({}))
+        if (!aborted && json?.success && json?.required === false) {
+          try { localStorage.setItem('activation_ok', '1') } catch {}
+          setActivated(true)
+        }
+      } catch { /* ignore */ }
+    })()
+    return () => { aborted = true }
+  }, [activated])
+
+  // 若本地标记为已激活，但没有保存激活码，且后端已开启强制校验，则撤销本地激活标记以显示激活页。
+  useEffect(() => {
+    if (!activated) return
+    let aborted = false
+    try {
+      const code = localStorage.getItem('activation_code') || ''
+      if (!code) {
+        ;(async () => {
+          try {
+            const resp = await fetch(api('/api/v1/activation/status'))
+            const json = await resp.json().catch(() => ({}))
+            // 如果后端需要激活，撤销本地放行
+            if (!aborted && json?.success && json?.required === true) {
+              try { localStorage.removeItem('activation_ok') } catch {}
+              setActivated(false)
+            }
+          } catch {/* ignore */}
+        })()
+      }
+    } catch {/* ignore */}
+    return () => { aborted = true }
+  }, [activated])
+
+  // 仅用于渲染判断：是否需要显示激活区域
+  const requireActivationGate = useMemo(() => !activated && trialCount >= 2, [activated, trialCount])
 
   const effectiveName = useMemo(() => (name && name.trim()) ? name.trim() : '你', [name])
   const effectiveQuestion = useMemo(() => (question && question.trim()) ? question.trim() : '请基于本命与天时给出综合性的现实建议与启发。', [question])
@@ -132,6 +186,32 @@ const CalculatePage: React.FC = () => {
     }
   }, [canShowFinal, originData, celestialData, inquiryData, question])
 
+  // 激活码：调用后端验证并记录
+  const handleActivate = async () => {
+    setActivationError(null)
+    if (!activationCode.trim()) { setActivationError('请输入激活码'); return }
+    try {
+      setIsActivating(true)
+      const device_id = getDeviceId()
+      const resp = await fetch(api('/api/v1/activate'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: activationCode.trim(), device_id })
+      })
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok || !json.success) {
+        const msg = json?.detail?.message || json?.message || '激活失败'
+        setActivationError(msg)
+        return
+      }
+      try { localStorage.setItem('activation_ok', '1'); localStorage.setItem('activation_code', activationCode.trim()) } catch {}
+      setActivated(true)
+    } catch (e) {
+      setActivationError('网络错误，请稍后再试')
+    } finally {
+      setIsActivating(false)
+    }
+  }
+
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -142,6 +222,15 @@ const CalculatePage: React.FC = () => {
       return
     }
 
+    // 未激活且超过试用次数：提示并展示激活区
+    if (!activated && trialCount >= 2) {
+      alert('试用次数已用尽，请输入激活码解锁无限次使用。')
+      return
+    }
+
+    // 用户明确发起一次新的占卜
+    setHasUserInitiated(true)
+    setOracleDone(false)
     setIsCalculating(true)
     setInterpretation(null)
     setOriginData(null)
@@ -151,12 +240,17 @@ const CalculatePage: React.FC = () => {
     setCelestialStatus('loading')
     setInquiryStatus('loading')
 
-    // 重置折叠状态
-    setStarshipsCollapsed(false)
-    setStarshipsUserToggled(false)
-    setStarshipsAutoCollapsed(false)
+    // 占卜过程中：仅展示流程进度
 
     try {
+      // 记录一次试用（仅在未激活时）
+      if (!activated) {
+        try {
+          const next = trialCount + 1
+          setTrialCount(next)
+          localStorage.setItem(TRIAL_KEY, String(next))
+        } catch {}
+      }
       // 并发启动三个子计算
       const tasks: Promise<void>[] = []
       let okOrigin = false
@@ -231,42 +325,52 @@ const CalculatePage: React.FC = () => {
       } else {
         console.log('[Divine] readyForComplete=false', { okOrigin, okCelestial, okInquiry, question })
         setFinalTried(false)
+        // 若无法进入流式阶段，立即结束“处理中”状态
+        setIsCalculating(false)
       }
     } catch (error) {
       console.error('Error:', error)
       alert('占卜计算失败，请稍后重试')
-    } finally {
+      // 出错直接结束处理中状态
       setIsCalculating(false)
     }
   }
 
   const oracleWrapRef = useRef<HTMLDivElement | null>(null)
 
-  // 当三舟全部就绪并可以显示最终解读时，自动折叠三舟卡片，使下方神谕自然显现
+  // 当准备开始流式输出时，滚动到神谕区域
   useEffect(() => {
-    if (
-      canShowFinal &&
-      originStatus === 'success' &&
-      celestialStatus === 'success' &&
-      inquiryStatus === 'success' &&
-      !starshipsAutoCollapsed &&
-      !starshipsUserToggled
-    ) {
-      // 稍作延迟，让用户先看到三舟完成，再自动折叠
-      const t = setTimeout(() => {
-        setStarshipsCollapsed(true)
-        setStarshipsAutoCollapsed(true)
-        // 滚动到神谕区域
-        try { oracleWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch {}
-      }, 300)
-      return () => clearTimeout(t)
+    if (hasUserInitiated && canShowFinal && !oracleDone) {
+      try { oracleWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch {}
     }
-  }, [canShowFinal, originStatus, celestialStatus, inquiryStatus, starshipsAutoCollapsed, starshipsUserToggled])
+  }, [hasUserInitiated, canShowFinal, oracleDone])
 
-  return (
-    <div className="ao-container ao-screen">
-      {/* 标题区域简化：移除冗余文案 */}
+  // 神谕完成后：无需展开控制，直接在下方展示三舟简洁卡片
+
+  // 分离渲染：激活门与主界面，避免嵌套括号导致的解析混乱
+  const renderActivationGate = () => (
+    <div className="ao-module" role="region" aria-label="激活">
+      <div className="ao-header--inverted">激活 / Activate</div>
+      <div className="ao-field">
+        <label htmlFor="activation" className="ao-header--standard">激活码 / Activation Code</label>
+        <div className="ao-console-field">
+          <input id="activation" className="ao-input" type="tel" inputMode="numeric" pattern="\\d{4,6}" placeholder="输入6位以内数字激活码"
+            value={activationCode} onChange={(e) => setActivationCode(e.target.value.replace(/[^0-9]/g, ''))} />
+          <span className="ao-cursor"></span>
+        </div>
+      </div>
+      {activationError && <div className="ao-console-line"><span className="ao-chip err">ERR</span>{activationError}</div>}
+      <button className="ao-button" disabled={isActivating} onClick={handleActivate}>{isActivating ? '验证中…' : '激活 Activate'}</button>
+      <div className="ao-hint" style={{ marginTop: 8 }}>体验超过 2 次后需激活。关注作者获取激活码：
+        <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">关注 / Follow</a>
+      </div>
+    </div>
+  )
+
+  const renderMainUI = () => (
+    <>
       <div className="ao-module">
+        {/* 标题区域简化：移除冗余文案 */}
         <div className="ao-header--inverted">占卜输入 / Input</div>
         <form onSubmit={handleCalculate} className="ao-form" aria-label="占卜输入">
           <div className="ao-field">
@@ -323,6 +427,30 @@ const CalculatePage: React.FC = () => {
           >
             {isCalculating ? '处理中… Processing' : '开始占卜 Start'}
           </button>
+          <div style={{ display: 'inline-block', marginLeft: 12 }}>
+            <button
+              type="button"
+              className="ao-button ao-button--secondary"
+              onClick={() => {
+                // 清空状态，准备新占卜
+                setName('')
+                setBirthDate('2000-01-01')
+                setQuestion('')
+                setIsCalculating(false)
+                setHasUserInitiated(false)
+                setOracleDone(false)
+                setInterpretation(null)
+                setOriginStatus('idle')
+                setCelestialStatus('idle')
+                setInquiryStatus('idle')
+                setOriginData(null)
+                setCelestialData(null)
+                setInquiryData(null)
+                setFinalTried(false)
+                try { localStorage.removeItem(STORAGE_KEY) } catch {}
+              }}
+            >新占卜 New</button>
+          </div>
         </form>
       </div>
 
@@ -332,77 +460,36 @@ const CalculatePage: React.FC = () => {
         <div className="ao-module" role="region" aria-label="占卜结果">
           <div className="ao-header--inverted">[SYSTEM] OUTPUT_TERMINAL</div>
 
-          {/* 三舟显示控制栏 */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button
-              type="button"
-              className="ao-button ao-button--sm"
-              onClick={() => {
-                setStarshipsCollapsed((v) => !v)
-                setStarshipsUserToggled(true)
-              }}
-            >{starshipsCollapsed ? '展开三舟 Expand' : '折叠三舟 Collapse'}</button>
+          {/* 流程进度（占卜过程中不展示三舟详情） */}
+          <div className="ao-console-bar">
+            <span className={`ao-chip ${originStatus === 'loading' ? 'warn' : originStatus === 'success' ? 'ok' : originStatus === 'error' ? 'err' : ''}`}>
+              ORIGIN {originStatus.toUpperCase()}
+            </span>
+            <span className={`ao-chip ${celestialStatus === 'loading' ? 'warn' : celestialStatus === 'success' ? 'ok' : celestialStatus === 'error' ? 'err' : ''}`}>
+              CELESTIAL {celestialStatus.toUpperCase()}
+            </span>
+            <span className={`ao-chip ${inquiryStatus === 'loading' ? 'warn' : inquiryStatus === 'success' ? 'ok' : inquiryStatus === 'error' ? 'err' : ''}`}>
+              INQUIRY {inquiryStatus.toUpperCase()}
+            </span>
+            {finalTried && !oracleDone && <span className="ao-chip warn">ORACLE STREAMING</span>}
+            {oracleDone && <span className="ao-chip ok">ORACLE COMPLETED</span>}
           </div>
 
-          {/* 三体共振显示（可折叠） */}
-          <div
-            className="ao-grid ao-grid--starships"
-            style={{ display: starshipsCollapsed ? 'none' as const : 'grid' as const }}
-          >
-            {/* 本命星舟 */}
-            {originStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
-            {originStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[ORIGIN] STARSHIP_01</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED</div></div>)}
-            {originStatus === 'success' && originData?.starship && (
-              <div className="ao-card ao-card--starship is-success">
-                <h4>[ORIGIN] STARSHIP_01</h4>
-                <div className="starship-info">
-                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>本命星舟：反映你的内在本质与底层倾向。</div>
-                  <div className="starship-name">{originData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {originData.starship.archive_id}</div>
-                  <div className="starship-description ao-clamp-3">{originData.starship.oracle_text}</div>
-                  <div className="match-score">[MATCH_SCORE] {originData.match_score ?? 0}</div>
-                </div>
-                <Link className="ao-button" to={`/starships/${originData.starship.archive_id}`}>查看详情 View</Link>
+          {/* 神谕解读（若为历史恢复则展示静态文本；否则按条件流式） */}
+          {interpretation && !hasUserInitiated ? (
+            <div className="ao-module" data-tone="oracle" ref={oracleWrapRef}>
+              <div className="ao-header--inverted">神谕 / Oracle</div>
+              <div className="ao-md"><ReactMarkdown>{interpretation}</ReactMarkdown></div>
+              <div style={{ marginTop: 12 }}>
+                <button
+                  className="ao-button ao-button--sm"
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(interpretation) ; alert('已复制 / Copied') } catch {}
+                  }}
+                >复制神谕 Copy</button>
               </div>
-            )}
-
-            {/* 天时星舟 */}
-            {celestialStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[CELESTIAL] STARSHIP_02</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
-            {celestialStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[CELESTIAL] STARSHIP_02</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED</div></div>)}
-            {celestialStatus === 'success' && celestialData?.starship && (
-              <div className="ao-card ao-card--starship is-success">
-                <h4>[CELESTIAL] STARSHIP_02</h4>
-                <div className="starship-info">
-                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>天时星舟：映射当下环境与外部机运。</div>
-                  <div className="starship-name">{celestialData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {celestialData.starship.archive_id}</div>
-                  <div className="starship-description ao-clamp-3">{celestialData.starship.oracle_text}</div>
-                  <div className="match-score">[MATCH_SCORE] {celestialData.match_score ?? 0}</div>
-                </div>
-                <Link className="ao-button" to={`/starships/${celestialData.starship.archive_id}`}>查看详情 View</Link>
-              </div>
-            )}
-
-            {/* 问道星舟 */}
-            {inquiryStatus === 'loading' && (<div className="ao-card ao-card--starship is-loading"><h4 className="ao-header--standard">[INQUIRY] STARSHIP_03</h4><div className="ao-console-line">[STATUS] PROCESSING <span className="ao-cursor"></span></div></div>)}
-            {inquiryStatus === 'error' && (<div className="ao-card ao-card--starship is-error"><h4 className="ao-header--standard">[INQUIRY] STARSHIP_03</h4><div><span className="ao-chip err">ERR</span> [ERROR] PROCESSING_FAILED / LLM_TIMEOUT</div></div>)}
-            {inquiryStatus === 'success' && inquiryData?.starship && (
-              <div className="ao-card ao-card--starship is-success">
-                <h4>[INQUIRY] STARSHIP_03</h4>
-                <div className="starship-info">
-                  <div className="ao-oracle-note" style={{ margin: '8px 0' }}>问道星舟：回应你此刻的问题方向。</div>
-                  <div className="starship-name">{inquiryData.starship.name_cn}</div>
-                  <div className="starship-id ao-ui" style={{ opacity: .7, fontSize: 12 }}>[ID] {inquiryData.starship.archive_id}</div>
-                  <div className="starship-description ao-clamp-3">{inquiryData.starship.oracle_text}</div>
-                  <div className="match-score">[MATCH_SCORE] {inquiryData.match_score ?? 0}</div>
-                </div>
-                <Link className="ao-button" to={`/starships/${inquiryData.starship.archive_id}`}>查看详情 View</Link>
-              </div>
-            )}
-          </div>
-
-          {/* 神谕解读（流式，直接调用 oracle/stream，传入三艘飞船ID与问题） */}
-          {canShowFinal && (
+            </div>
+          ) : (hasUserInitiated && canShowFinal && (
             <div className="ao-module" data-tone="oracle" ref={oracleWrapRef}>
               <div className="ao-header--inverted">神谕 / Oracle</div>
               <OracleStream
@@ -417,6 +504,9 @@ const CalculatePage: React.FC = () => {
                 }}
                 onDone={async (t) => {
                   setInterpretation(t)
+                  setOracleDone(true)
+                  // 神谕完成：结束处理中状态
+                  setIsCalculating(false)
                   try {
                     const device_id = getDeviceId()
                     const record = {
@@ -440,6 +530,8 @@ const CalculatePage: React.FC = () => {
                 }}
                 onError={(e) => {
                   console.error('oracle stream error', e)
+                  // 流式出错：结束处理中状态
+                  setIsCalculating(false)
                 }}
               />
               <div style={{ marginTop: 12 }}>
@@ -456,9 +548,72 @@ const CalculatePage: React.FC = () => {
                 >复制神谕 Copy</button>
               </div>
             </div>
+          ))}
+
+          {/* 三体共振显示：神谕完成后展示（简洁版） */}
+          {oracleDone && (
+          <div className="ao-grid ao-grid--starships" style={{ marginTop: 12 }}>
+            {originStatus === 'success' && originData?.starship && (
+              <div className="ao-card ao-card--starship" style={{ padding: 12 }}>
+                <div className="name">[ORIGIN] {originData.starship.name_cn}</div>
+                <div className="meta">ID {originData.starship.archive_id} · 匹配 {typeof originData.match_score === 'number' ? (originData.match_score * 100).toFixed(0) + '%' : '—'}</div>
+                <div className="ao-hint" style={{ margin: '6px 0 8px' }}>
+                  本命之舟：象征你的内在禀赋与稳定气质，是可长期依托的能量与路径。
+                </div>
+                {Array.isArray(originData?.starship?.oracle_keywords) && originData.starship.oracle_keywords.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {originData.starship.oracle_keywords.slice(0, 3).map((k: string, i: number) => (
+                      <span key={i} className="ao-tag" style={{ marginRight: 6 }}>{k}</span>
+                    ))}
+                  </div>
+                )}
+                <Link className="ao-button ao-button--sm" to={`/starships/${originData.starship.archive_id}`}>查看详情</Link>
+              </div>
+            )}
+            {celestialStatus === 'success' && celestialData?.starship && (
+              <div className="ao-card ao-card--starship" style={{ padding: 12 }}>
+                <div className="name">[CELESTIAL] {celestialData.starship.name_cn}</div>
+                <div className="meta">ID {celestialData.starship.archive_id} · 匹配 {typeof celestialData.match_score === 'number' ? (celestialData.match_score * 100).toFixed(0) + '%' : '—'}</div>
+                <div className="ao-hint" style={{ margin: '6px 0 8px' }}>
+                  天时之舟：刻画当下时势与节律，提示顺势而为的窗口与约束。
+                </div>
+                {Array.isArray(celestialData?.starship?.oracle_keywords) && celestialData.starship.oracle_keywords.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {celestialData.starship.oracle_keywords.slice(0, 3).map((k: string, i: number) => (
+                      <span key={i} className="ao-tag" style={{ marginRight: 6 }}>{k}</span>
+                    ))}
+                  </div>
+                )}
+                <Link className="ao-button ao-button--sm" to={`/starships/${celestialData.starship.archive_id}`}>查看详情</Link>
+              </div>
+            )}
+            {inquiryStatus === 'success' && inquiryData?.starship && (
+              <div className="ao-card ao-card--starship" style={{ padding: 12 }}>
+                <div className="name">[INQUIRY] {inquiryData.starship.name_cn}</div>
+                <div className="meta">ID {inquiryData.starship.archive_id} · 匹配 {typeof inquiryData.match_score === 'number' ? (inquiryData.match_score * 100).toFixed(0) + '%' : '—'}</div>
+                <div className="ao-hint" style={{ margin: '6px 0 8px' }}>
+                  问道之舟：与你的提问共振，聚焦当前最值得推进的行动线索。
+                </div>
+                {Array.isArray(inquiryData?.starship?.oracle_keywords) && inquiryData.starship.oracle_keywords.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {inquiryData.starship.oracle_keywords.slice(0, 3).map((k: string, i: number) => (
+                      <span key={i} className="ao-tag" style={{ marginRight: 6 }}>{k}</span>
+                    ))}
+                  </div>
+                )}
+                <Link className="ao-button ao-button--sm" to={`/starships/${inquiryData.starship.archive_id}`}>查看详情</Link>
+              </div>
+            )}
+          </div>
           )}
         </div>
       )}
+    </>
+  )
+
+  return (
+    <div className="ao-container ao-screen">
+      {requireActivationGate ? renderActivationGate() : renderMainUI()}
     </div>
   )
 }

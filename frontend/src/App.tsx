@@ -20,7 +20,7 @@ function App() {
           <div className="ao-container ao-screen">
             <h1 className="ao-screen__title" style={{ fontFamily: 'var(--ao-font-terminal)', textTransform: 'uppercase', letterSpacing: '2px' }}>Astro Oracle</h1>
             <div className="ao-hero">
-              <div className="ao-hero__subtitle">寻星问道</div>
+              <div className="ao-hero__subtitle">寻星问道  太空占卜</div>
               <div className="ao-hero__meta">
                 Inspired by Quadrature (Juliane Götz & Sebastian Neitsch)’s <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024)
               </div>
