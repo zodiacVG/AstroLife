@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import OracleStream from '../components/OracleStream'
+import SharePoster, { exportPosterAsPng } from '../components/SharePoster'
+import { copyHtmlFromElement, copyText } from '../lib/clipboard'
 import { api } from '../lib/api'
 
 const CalculatePage: React.FC = () => {
@@ -39,6 +41,8 @@ const CalculatePage: React.FC = () => {
   const [inquiryData, setInquiryData] = useState<any>(() => saved.inquiryData || null)
   const [interpretation, setInterpretation] = useState<string | null>(() => saved.interpretation ?? null)
   const [finalTried, setFinalTried] = useState<boolean>(() => !!(saved.interpretation && String(saved.interpretation).trim()))
+  const [renderPoster, setRenderPoster] = useState<boolean>(false)
+  const posterWrapRef = useRef<HTMLDivElement | null>(null)
 
   // 三舟结果折叠/展开控制
   // 简洁卡片展示（不再折叠控制）
@@ -480,13 +484,28 @@ const CalculatePage: React.FC = () => {
             <div className="ao-module" data-tone="oracle" ref={oracleWrapRef}>
               <div className="ao-header--inverted">神谕 / Oracle</div>
               <div className="ao-md"><ReactMarkdown>{interpretation}</ReactMarkdown></div>
-              <div style={{ marginTop: 12 }}>
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   className="ao-button ao-button--sm"
                   onClick={async () => {
-                    try { await navigator.clipboard.writeText(interpretation) ; alert('已复制 / Copied') } catch {}
+                    const ok = oracleWrapRef.current
+                      ? await copyHtmlFromElement(oracleWrapRef.current)
+                      : await copyText(interpretation)
+                    alert(ok ? '已复制 / Copied' : '复制失败，请手动选择文本')
                   }}
                 >复制神谕 Copy</button>
+                <button
+                  className="ao-button ao-button--sm ao-button--secondary"
+                  onClick={async () => {
+                    setRenderPoster(true)
+                    await new Promise(r => setTimeout(r, 600))
+                    const root = posterWrapRef.current?.querySelector('#share-poster-root') as HTMLElement | null
+                    if (root) {
+                      await exportPosterAsPng(root)
+                    }
+                    setRenderPoster(false)
+                  }}
+                >一键生成分享海报</button>
               </div>
             </div>
           ) : (hasUserInitiated && canShowFinal && (
@@ -534,18 +553,30 @@ const CalculatePage: React.FC = () => {
                   setIsCalculating(false)
                 }}
               />
-              <div style={{ marginTop: 12 }}>
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button
                   className="ao-button ao-button--sm"
                   disabled={!interpretation}
                   onClick={async () => {
-                    try {
-                      const text = interpretation || oracleWrapRef.current?.innerText || ''
-                      await navigator.clipboard.writeText(text)
-                      alert('已复制 / Copied')
-                    } catch { }
+                    const ok = oracleWrapRef.current
+                      ? await copyHtmlFromElement(oracleWrapRef.current)
+                      : await copyText(interpretation || '')
+                    alert(ok ? '已复制 / Copied' : '复制失败，请手动选择文本')
                   }}
                 >复制神谕 Copy</button>
+                <button
+                  className="ao-button ao-button--sm ao-button--secondary"
+                  disabled={!interpretation}
+                  onClick={async () => {
+                    setRenderPoster(true)
+                    await new Promise(r => setTimeout(r, 600))
+                    const root = posterWrapRef.current?.querySelector('#share-poster-root') as HTMLElement | null
+                    if (root) {
+                      await exportPosterAsPng(root)
+                    }
+                    setRenderPoster(false)
+                  }}
+                >一键生成分享海报</button>
               </div>
             </div>
           ))}
@@ -614,6 +645,20 @@ const CalculatePage: React.FC = () => {
   return (
     <div className="ao-container ao-screen">
       {requireActivationGate ? renderActivationGate() : renderMainUI()}
+      {/* Hidden poster renderer */}
+      {renderPoster && (
+        <div ref={posterWrapRef} style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}>
+          <SharePoster
+            name={effectiveName}
+            question={effectiveQuestion}
+            interpretationMarkdown={interpretation || ''}
+            origin={originData?.starship || null}
+            celestial={celestialData?.starship || null}
+            inquiry={inquiryData?.starship || null}
+            qrLink={'https://astroracle2.zeabur.app/'}
+          />
+        </div>
+      )}
     </div>
   )
 }
