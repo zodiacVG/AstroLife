@@ -22,9 +22,9 @@ function App() {
             <div className="ao-hero">
               <div className="ao-hero__subtitle">寻星问道  太空占卜</div>
               <div className="ao-hero__meta">
-                Inspired by Quadrature (Juliane Götz & Sebastian Neitsch)’s <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024)
+                灵感来源：Quadrature (Juliane Götz & Sebastian Neitsch)’s <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024)
               </div>
-              <div className="ao-hero__meta">关注作者，无限次使用寻星问道 · Follow Zodiac on Xiaohongshu → <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">关注 / Follow</a></div>
+              <div className="ao-hero__meta">关注作者，无限次使用寻星问道<a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">     👉 关注</a></div>
             </div>
           </div>
         </header>

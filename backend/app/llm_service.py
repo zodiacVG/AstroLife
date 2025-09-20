@@ -142,6 +142,7 @@ class LLMService:
             stream = self.client.chat.completions.create(
                 model=self.model,
                 stream=True,
+                max_tokens=3000,  # 增加最大输出令牌数，允许更长的神谕解读
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -177,6 +178,7 @@ class LLMService:
             response = self.client.chat.completions.create(
                 model=(model or self.model),
                 messages=messages,
+                max_tokens=3000,  # 增加最大输出令牌数，允许更长的神谕解读
             )
             # 兼容响应格式：对象、dict、pydantic/base-model-like
             content = None
