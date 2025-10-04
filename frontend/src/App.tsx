@@ -21,10 +21,7 @@ function App() {
             <h1 className="ao-screen__title" style={{ fontFamily: 'var(--ao-font-terminal)', textTransform: 'uppercase', letterSpacing: '2px' }}>Astro Oracle</h1>
             <div className="ao-hero">
               <div className="ao-hero__subtitle">寻星问道  太空占卜</div>
-              <div className="ao-hero__meta">
-                灵感来源：Quadrature (Juliane Götz & Sebastian Neitsch)’s <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024)
-              </div>
-              <div className="ao-hero__meta">关注作者，无限次使用寻星问道<a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">     👉 关注</a></div>
+              <div className="ao-hero__meta">关注作者，获取更多有趣玩法  <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">     👉 关注  @Zodiac</a></div>
             </div>
           </div>
         </header>
@@ -43,6 +40,14 @@ function App() {
             </Routes>
           </React.Suspense>
         </main>
+
+        <footer className="App-footer">
+          <div className="ao-container">
+            <div className="ao-hero__meta">
+              灵感来源：Quadrature (Juliane Götz & Sebastian Neitsch)’s <a className="ao-link" href="https://quadrature.co/work/scope/" target="_blank" rel="noreferrer">SCOPE</a> (2024)
+            </div>
+          </div>
+        </footer>
       </div>
     </Router>
   )

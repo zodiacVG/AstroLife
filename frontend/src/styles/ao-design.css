@@ -85,7 +85,7 @@ a.ao-button:hover, .ao-button:hover { text-decoration: none; }
 .ao-button { padding:10px 16px; font:14px var(--ao-font-terminal); border:1px solid var(--ao-color-system); background:transparent; cursor:pointer; text-transform:uppercase; letter-spacing:1px; transition: background-color .2s, color .2s, border-color .2s; position: relative; display:inline-block; color: var(--ao-color-system); }
 [data-tone="oracle"] .ao-button { color: var(--ao-color-oracle); border-color: var(--ao-color-oracle); }
 .ao-button::before { content:'>'; margin-right:8px; display:inline-block; }
-.ao-button--sm { padding:6px 10px; font-size:14px; letter-spacing:1px; }
+.ao-button--sm { padding:4px 8px; font-size:12px; letter-spacing:0.5px; }
 /* Only provide click feedback; no hover/toggle states */
 .ao-button:hover { background: transparent; color: var(--ao-color-system); border-color: var(--ao-color-system); }
 .ao-button:active { background: var(--ao-color-system); color:#000; text-shadow:none; border-color: var(--ao-color-system); }
@@ -150,7 +150,7 @@ a.ao-button:hover, .ao-button:hover { text-decoration: none; }
 .ao-chip.err { color: var(--ao-color-danger); }
 .ao-chip.warn { color: var(--ao-color-warning); }
 .ao-chip.warn { animation: ao-flicker 1.2s infinite; }
-.ao-console-bar { display:flex; align-items:center; flex-wrap:wrap; gap: 8px 12px; margin-top: 8px; font-size: 16px; font-family: var(--ao-font-ui); }
+.ao-console-bar { display:flex; align-items:center; flex-wrap:wrap; gap: 4px 8px; margin-top: 8px; font-size: 16px; font-family: var(--ao-font-ui); }
 /* UI text rows */
 .ao-ui { font-family: var(--ao-font-ui); }
 /* sticky global bar */

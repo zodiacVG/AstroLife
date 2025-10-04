@@ -27,11 +27,11 @@ const GlobalBar: React.FC = () => {
   return (
     <div className="ao-container ao-globalbar">
       <div className="ao-console-bar">
-        <button className="ao-button ao-button--sm" onClick={() => navigate('/')}>首页 Home</button>
-        <button className="ao-button ao-button--sm" onClick={() => navigate(-1)}>返回 Back</button>
-        <Link className="ao-button ao-button--sm" to="/history">历史 History</Link>
+        <button className="ao-button ao-button--sm" onClick={() => navigate('/')}>首页</button>
+        <button className="ao-button ao-button--sm" onClick={() => navigate(-1)}>返回</button>
+        <Link className="ao-button ao-button--sm" to="/history">历史</Link>
         <button className="ao-button ao-button--sm" onClick={toggleBgm}>
-          {muted ? '音乐 关' : '音乐 开'}
+          {muted ? '音乐关' : '音乐开'}
         </button>
       </div>
     </div>

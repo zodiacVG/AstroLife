@@ -366,7 +366,7 @@ const CalculatePage: React.FC = () => {
       </div>
       {activationError && <div className="ao-console-line"><span className="ao-chip err">ERR</span>{activationError}</div>}
       <button className="ao-button" disabled={isActivating} onClick={handleActivate}>{isActivating ? '验证中…' : '激活 Activate'}</button>
-      <div className="ao-hint" style={{ marginTop: 8 }}>体验超过 2 次后需激活。关注作者获取激活码：
+      <div className="ao-hint" style={{ marginTop: 8 }}>体验超过 2 次后需激活。关注并私信作者获取激活码：
         <a className="ao-link" href="https://xhslink.com/m/9Vmo5NJsG9L" target="_blank" rel="noreferrer">关注 / Follow</a>
       </div>
     </div>
