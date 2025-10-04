@@ -11,8 +11,8 @@ COPY runtime.txt .
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 复制app目录内容到工作目录的根目录
-COPY app/ .
+# 复制app目录内容到工作目录（保持目录结构）
+COPY app/ ./app/
 
 # 复制data目录到工作目录
 COPY data/ ./data/
@@ -25,7 +25,7 @@ COPY README.md .
 EXPOSE $PORT
 
 # 创建启动脚本
-RUN echo '#!/bin/sh\nuvicorn main:app --host 0.0.0.0 --port $PORT' > start.sh && \
+RUN echo '#!/bin/sh\nuvicorn app.main:app --host 0.0.0.0 --port $PORT' > start.sh && \
     chmod +x start.sh
 
 # 启动命令
