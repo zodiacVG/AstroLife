@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Link } from 'react-router-dom'
 import OracleStream from '../components/OracleStream'
-import SharePoster, { exportPosterAsPng } from '../components/SharePoster'
-import { copyHtmlFromElement, copyText } from '../lib/clipboard'
+import { copyHtmlFromElement } from '../lib/clipboard'
 import { api } from '../lib/api'
 
 const CalculatePage: React.FC = () => {
@@ -41,9 +40,6 @@ const CalculatePage: React.FC = () => {
   const [inquiryData, setInquiryData] = useState<any>(() => saved.inquiryData || null)
   const [interpretation, setInterpretation] = useState<string | null>(() => saved.interpretation ?? null)
   const [finalTried, setFinalTried] = useState<boolean>(() => !!(saved.interpretation && String(saved.interpretation).trim()))
-  const [renderPoster, setRenderPoster] = useState<boolean>(false)
-  const [isGeneratingPoster, setIsGeneratingPoster] = useState<boolean>(false)  // 添加海报生成状态
-  const posterWrapRef = useRef<HTMLDivElement | null>(null)
 
   // 三舟结果折叠/展开控制
   // 简洁卡片展示（不再折叠控制）
@@ -561,45 +557,6 @@ const CalculatePage: React.FC = () => {
                   }}
                 >复制神谕 Copy</button>
                 {/* 导出海报功能暂时隐藏 */}
-                {/*
-                <button
-                  className="ao-button ao-button--sm ao-button--secondary"
-                  disabled={!interpretation}
-                  onClick={async () => {
-                    console.log('[DEBUG] 开始生成海报流程 (第二个按钮)')
-                    setIsGeneratingPoster(true)  // 开始生成海报
-                    console.log('[DEBUG] 设置isGeneratingPoster为true')
-                    setRenderPoster(true)
-                    console.log('[DEBUG] 设置renderPoster为true')
-                    await new Promise(r => setTimeout(r, 600))
-                    console.log('[DEBUG] 完成第一个600ms延迟')
-                    const root = posterWrapRef.current?.querySelector('#share-poster-root') as HTMLElement | null
-                    console.log('[DEBUG] 获取海报根元素:', root ? '成功' : '失败')
-                    if (root) {
-                      console.log('[DEBUG] 海报根元素尺寸:', {
-                        width: root.scrollWidth,
-                        height: root.scrollHeight,
-                        offsetWidth: root.offsetWidth,
-                        offsetHeight: root.offsetHeight
-                      })
-                      // 添加一个延迟，确保海报内容完全渲染
-                      console.log('[DEBUG] 开始1000ms延迟，等待内容渲染')
-                      await new Promise(r => setTimeout(r, 1000))
-                      console.log('[DEBUG] 延迟结束，开始导出海报')
-                      await exportPosterAsPng(root)
-                      console.log('[DEBUG] 海报导出完成')
-                    } else {
-                      console.error('[DEBUG] 无法找到海报根元素')
-                    }
-                    setRenderPoster(false)
-                    console.log('[DEBUG] 设置renderPoster为false')
-                    setIsGeneratingPoster(false)  // 结束生成海报
-                    console.log('[DEBUG] 设置isGeneratingPoster为false，流程结束')
-                  }}
-                >
-                  {isGeneratingPoster ? '生成中...' : '一键生成分享海报'}
-                </button>
-                */}
               </div>
             </div>
           ))}
@@ -668,20 +625,6 @@ const CalculatePage: React.FC = () => {
   return (
     <div className="ao-container ao-screen">
       {requireActivationGate ? renderActivationGate() : renderMainUI()}
-      {/* Hidden poster renderer */}
-      {renderPoster && (
-        <div ref={posterWrapRef} style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none', zIndex: -1 }}>
-          <SharePoster
-            name={effectiveName}
-            question={effectiveQuestion}
-            interpretationMarkdown={interpretation || ''}
-            origin={originData?.starship || null}
-            celestial={celestialData?.starship || null}
-            inquiry={inquiryData?.starship || null}
-            qrLink={'https://astroracle2.zeabur.app/'}
-          />
-        </div>
-      )}
     </div>
   )
 }
